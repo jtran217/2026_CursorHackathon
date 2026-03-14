@@ -1,100 +1,159 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400&display=swap');
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Design tokens (docs/design.md) — CSS variables for light/dark
-   Override in :root and @media (prefers-color-scheme: dark)
+   Design tokens — Warm Daylight (docs/design.md v2.0)
+   Light-mode. No blue. Cream, terracotta gold, moss, burnt sienna, dusk violet.
    --------------------------------------------------------------------------- */
 :root {
-  /* Backgrounds */
-  --app-bg-primary: #f8fafc;
-  --app-bg-elevated: #ffffff;
-  /* Text */
-  --app-text-primary: #0f172a;
-  --app-text-secondary: #64748b;
-  /* Accent */
-  --app-accent: #0ea5e9;
-  --app-accent-calm: #10b981;
-  /* Focus strain */
-  --app-strain-caution: #f59e0b;
-  --app-strain-high: #dc2626;
-  /* Border */
-  --app-border: #e2e8f0;
-  /* Focus ring */
-  --app-focus-ring: #0ea5e9;
-}
+  /* === Brand core === */
+  --color-primary:         #BA7517;
+  --color-primary-light:   #FAC775;
+  --color-primary-surface: #FAEEDA;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --app-bg-primary: #0f172a;
-    --app-bg-elevated: #1e293b;
-    --app-text-primary: #f1f5f9;
-    --app-text-secondary: #94a3b8;
-    --app-accent: #38bdf8;
-    --app-accent-calm: #34d399;
-    --app-strain-caution: #fbbf24;
-    --app-strain-high: #f87171;
-    --app-border: #334155;
-    --app-focus-ring: #38bdf8;
-  }
+  /* === State: Calm === */
+  --color-calm:            #639922;
+  --color-calm-surface:    #EAF3DE;
+
+  /* === State: Nudge === */
+  --color-nudge:           #BA7517;
+  --color-nudge-surface:   #FAEEDA;
+
+  /* === State: Alert === */
+  --color-alert:           #D85A30;
+  --color-alert-surface:   #FAECE7;
+
+  /* === State: Focus / Intervention === */
+  --color-focus:           #534AB7;
+  --color-focus-surface:   #EEEDFE;
+
+  /* === Neutrals === */
+  --color-bg:              #EDEBE6;
+  --color-bg-secondary:    #F4F2ED;
+  --color-border:          #B4B2A9;
+  --color-text-primary:    #2C2C2A;
+  --color-text-secondary:  #5F5E5A;
+  --color-text-tertiary:   #B4B2A9;
+
+  /* === Typography === */
+  --font-display: 'Lora', Georgia, serif;
+  --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+  --font-ui:      'DM Sans', system-ui, sans-serif;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --text-hero: clamp(48px, 8vw, 80px);
+
+  --leading-tight:   1.1;
+  --leading-snug:    1.3;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.7;
+
+  --tracking-tight:   -0.02em;
+  --tracking-normal:   0em;
+  --tracking-wide:     0.06em;
+  --tracking-widest:   0.12em;
+
+  /* === Spacing === */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  12px;
+  --space-lg:  16px;
+  --space-xl:  24px;
+  --space-2xl: 40px;
+
+  --sidebar-width:     220px;
+  --content-max-width: 760px;
+  --panel-padding:     var(--space-xl);
+  --card-padding:      var(--space-xl);
+  --card-padding-sm:   var(--space-lg);
+
+  /* === Border Radius === */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-pill: 99px;
+
+  /* === Motion === */
+  --ease-flow:    cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emerge:  cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-recede:  cubic-bezier(0.4, 0, 1, 1);
+  --ease-breath:  cubic-bezier(0.45, 0.05, 0.55, 0.95);
+
+  --duration-instant:    80ms;
+  --duration-fast:       150ms;
+  --duration-normal:     300ms;
+  --duration-slow:       600ms;
+  --duration-deliberate: 1200ms;
+  --duration-state:      1800ms;
 }
 
 /* ---------------------------------------------------------------------------
-   Tailwind v4 @theme — design tokens as utilities
-   Using inline so vars resolve at runtime for light/dark
+   Tailwind v4 @theme — expose design tokens as utilities
    --------------------------------------------------------------------------- */
 @theme inline {
-  /* Semantic colors (map to app variables) */
-  --color-bg-primary: var(--app-bg-primary);
-  --color-bg-elevated: var(--app-bg-elevated);
-  --color-text-primary: var(--app-text-primary);
-  --color-text-secondary: var(--app-text-secondary);
-  --color-accent: var(--app-accent);
-  --color-accent-calm: var(--app-accent-calm);
-  --color-strain-caution: var(--app-strain-caution);
-  --color-strain-high: var(--app-strain-high);
-  --color-border: var(--app-border);
+  /* Brand */
+  --color-primary:         var(--color-primary);
+  --color-primary-light:   var(--color-primary-light);
+  --color-primary-surface: var(--color-primary-surface);
 
-  /* Typography — design scale (--text-* generates text-* utilities) */
-  --font-sans: Inter, system-ui, ui-sans-serif, sans-serif;
-  --text-display: 2.5rem;           /* HR, big timer */
-  --text-h1: 1.5rem;               /* screen titles */
-  --text-h2: 1.25rem;              /* section titles */
-  --text-body: 1rem;               /* default copy */
-  --text-caption: 0.875rem;        /* labels, hints */
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --line-height-tight: 1.25;
-  --line-height-normal: 1.5;
+  /* States */
+  --color-calm:            var(--color-calm);
+  --color-calm-surface:    var(--color-calm-surface);
+  --color-nudge:           var(--color-nudge);
+  --color-nudge-surface:   var(--color-nudge-surface);
+  --color-alert:           var(--color-alert);
+  --color-alert-surface:   var(--color-alert-surface);
+  --color-focus:           var(--color-focus);
+  --color-focus-surface:   var(--color-focus-surface);
 
-  /* Spacing scale (design: 4, 8, 12, 16, 24, 32, 48) */
-  --spacing-1: 0.25rem;   /* 4px */
-  --spacing-2: 0.5rem;    /* 8px */
-  --spacing-3: 0.75rem;   /* 12px */
-  --spacing-4: 1rem;      /* 16px */
-  --spacing-6: 1.5rem;    /* 24px */
-  --spacing-8: 2rem;      /* 32px */
-  --spacing-12: 3rem;     /* 48px */
+  /* Neutrals */
+  --color-bg:              var(--color-bg);
+  --color-bg-secondary:    var(--color-bg-secondary);
+  --color-border:          var(--color-border);
+  --color-text-primary:    var(--color-text-primary);
+  --color-text-secondary:  var(--color-text-secondary);
+  --color-text-tertiary:   var(--color-text-tertiary);
+
+  /* Typography */
+  --font-display: var(--font-display);
+  --font-mono:    var(--font-mono);
+  --font-ui:      var(--font-ui);
+  --font-sans:    var(--font-ui);
+
+  /* Spacing */
+  --spacing-xs:  var(--space-xs);
+  --spacing-sm:  var(--space-sm);
+  --spacing-md:  var(--space-md);
+  --spacing-lg:  var(--space-lg);
+  --spacing-xl:  var(--space-xl);
+  --spacing-2xl: var(--space-2xl);
 
   /* Radius */
-  --radius-button: 0.5rem;   /* 8px */
-  --radius-card: 0.75rem;    /* 12px */
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   var(--radius-md);
+  --radius-lg:   var(--radius-lg);
+  --radius-pill: var(--radius-pill);
 
   /* Motion */
-  --transition-duration: 200ms;
-  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --transition-duration: var(--duration-fast);
+  --ease-out: var(--ease-flow);
 }
 
 /* ---------------------------------------------------------------------------
-   Base styles (design: calm, readable)
+   Base styles
    --------------------------------------------------------------------------- */
 :root {
-  font-family: var(--font-sans);
-  line-height: var(--line-height-normal);
-  font-weight: var(--font-weight-normal);
-  color: var(--app-text-primary);
-  background-color: var(--app-bg-primary);
-  color-scheme: light dark;
+  font-family: var(--font-ui);
+  line-height: var(--leading-normal);
+  font-weight: 400;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -103,34 +162,345 @@
 
 * {
   box-sizing: border-box;
+  /* Smooth all color/bg/border shifts for state transitions */
+  transition:
+    color            var(--duration-fast) var(--ease-flow),
+    background-color var(--duration-fast) var(--ease-flow),
+    border-color     var(--duration-fast) var(--ease-flow);
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--color-bg);
 }
 
-/* Links use accent */
 a {
-  font-weight: var(--font-weight-medium);
-  color: var(--app-accent);
+  font-weight: 500;
+  color: var(--color-primary);
   text-decoration: inherit;
 }
 a:hover {
-  opacity: 0.9;
+  color: #9E6210;
 }
 
-/* Focus ring for accessibility (design: 2px accent outline) */
+/* Focus ring */
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--app-focus-ring);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-/* Respect reduced motion */
+/* ---------------------------------------------------------------------------
+   Component patterns
+   --------------------------------------------------------------------------- */
+
+/* Cards */
+.card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--card-padding);
+}
+.card:hover {
+  border-color: #9B9991;
+  transition: border-color 200ms var(--ease-flow);
+}
+
+/* State-tinted notification cards */
+.card--calm  { background: var(--color-calm-surface);  border-left: 3px solid var(--color-calm); }
+.card--alert { background: var(--color-alert-surface); border-left: 3px solid var(--color-alert); }
+.card--focus { background: var(--color-focus-surface); border-left: 3px solid var(--color-focus); }
+
+/* Buttons */
+.btn-primary {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 500;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-xl);
+  cursor: pointer;
+  transition: background 150ms var(--ease-flow), transform 100ms var(--ease-flow);
+}
+.btn-primary:hover  { background: #9E6210; }
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-xl);
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: border-color 150ms var(--ease-flow), color 150ms var(--ease-flow);
+}
+.btn-ghost:hover {
+  border-color: #9B9991;
+  color: var(--color-text-primary);
+}
+
+.btn-signal {
+  background: transparent;
+  color: var(--color-alert);
+  border: 1px solid var(--color-alert);
+  border-radius: var(--radius-pill);
+  padding: var(--space-md) var(--space-xl);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 200ms var(--ease-flow);
+}
+.btn-signal:hover {
+  background: var(--color-alert-surface);
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+.badge--calm  { background: var(--color-calm);  color: #fff; }
+.badge--nudge { background: var(--color-nudge); color: #fff; }
+.badge--alert { background: var(--color-alert); color: #fff; }
+.badge--focus { background: var(--color-focus); color: #fff; }
+
+/* Pulse dot */
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  position: relative;
+}
+.pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0;
+  animation: pulse-ring 2s var(--ease-flow) infinite;
+}
+@keyframes pulse-ring {
+  0%   { opacity: 0.6; transform: scale(0.8); }
+  100% { opacity: 0;   transform: scale(2.2); }
+}
+.pulse-dot--calm     { color: var(--color-calm); }
+.pulse-dot--normal   { color: var(--color-primary); }
+.pulse-dot--elevated { color: var(--color-nudge); animation-duration: 1.2s; }
+.pulse-dot--overload { color: var(--color-alert); animation-duration: 0.8s; }
+
+/* Heart rate display */
+.hr-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+.hr-display__label {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+.hr-display__value {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.hr-display__unit {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  letter-spacing: var(--tracking-wide);
+  margin-left: var(--space-xs);
+}
+
+/* Strain score */
+.strain-score {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.strain-score--low      { color: var(--color-calm); }
+.strain-score--moderate { color: var(--color-primary); }
+.strain-score--high     { color: var(--color-alert); }
+.strain-score--critical { color: #993C1D; }
+
+/* HR value animation */
+.hr-fade-out {
+  opacity: 0;
+  transition: opacity 100ms var(--ease-flow);
+}
+.hr-fade-in {
+  animation: hr-drift-in 150ms var(--ease-emerge) both;
+}
+@keyframes hr-drift-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal shadow */
+.modal-shadow {
+  box-shadow:
+    0 0 0 1px var(--color-border),
+    0 16px 48px rgba(44, 44, 42, 0.12);
+}
+
+/* Breathing circle — 8s cycle (4s inhale, 4s exhale) */
+.breathing-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 2px solid var(--color-focus);
+  animation: breathe 8s var(--ease-breath) infinite;
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(0.85); opacity: 0.6; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+
+/* Intervention overlay */
+.intervention-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 44, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: backdrop-in 400ms var(--ease-emerge) both;
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.intervention-panel {
+  background: var(--color-focus-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 480px;
+  padding: var(--space-2xl);
+  animation: panel-slide-in 600ms var(--ease-emerge) both;
+}
+@keyframes panel-slide-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Stepper dots */
+.stepper-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background 300ms var(--ease-flow);
+}
+.stepper-dot--active {
+  background: var(--color-focus);
+}
+.stepper-dot--done {
+  background: var(--color-focus);
+  opacity: 0.5;
+}
+
+/* Staggered reveal for session summary */
+.stagger-reveal > * {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: stagger-in 400ms var(--ease-emerge) both;
+}
+.stagger-reveal > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-reveal > *:nth-child(2) { animation-delay: 100ms; }
+.stagger-reveal > *:nth-child(3) { animation-delay: 200ms; }
+.stagger-reveal > *:nth-child(4) { animation-delay: 300ms; }
+.stagger-reveal > *:nth-child(5) { animation-delay: 400ms; }
+.stagger-reveal > *:nth-child(6) { animation-delay: 500ms; }
+@keyframes stagger-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Focus mode bg tint (applied via inline style for dynamic opacity) */
+.focus-screen {
+  transition: background-color var(--duration-state) var(--ease-flow);
+}
+
+/* Timer tick animation */
+.timer-tick {
+  animation: tick-pulse 1s var(--ease-flow) infinite;
+}
+@keyframes tick-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.85; }
+}
+
+/* Journal timeline */
+.journal-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+.journal-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 24px;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+}
+.journal-date-group {
+  position: relative;
+  z-index: 1;
+  background: var(--color-bg);
+  display: inline-block;
+  padding-right: 8px;
+}
+.journal-entry {
+  position: relative;
+}
+.journal-entry::before {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-border);
+  border: 2px solid var(--color-bg);
+  z-index: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion
+   --------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
+  .pulse-dot::after,
+  .breathing-circle,
+  [data-animate] {
+    animation: none;
+    transition: none;
+  }
+
   *,
   *::before,
   *::after {

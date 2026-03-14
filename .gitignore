@@ -26,23 +26,3 @@ dist-ssr
 # Electron build outputs
 dist-electron
 release
-
-# Python
-.venv/
-venv/
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-.eggs/
-*.egg
-
-# Backend / Flask
-backend/.venv/
-backend/app.db
-*.db
-
-# Cursor / IDE
-.cursor/
