@@ -49,9 +49,10 @@ def main():
             )
         )
 
-        # Session summary
+        # Session summary (match actual span of heart rate readings: 8 min ago to 1 min ago = 7 min)
         bpms = [72, 78, 85, 92, 125, 118, 95, 88]
         first_ts = now - timedelta(minutes=8)
+        last_ts = now - timedelta(minutes=1)
         abnormal_count = sum(1 for b in bpms if b >= 120 or b <= 40)
         session.add(
             models.SessionSummary(
@@ -61,8 +62,8 @@ def main():
                 min_bpm=float(min(bpms)),
                 intervention=True,
                 start_time=first_ts,
-                end_time=now,
-                duration_minutes=8.0,
+                end_time=last_ts,
+                duration_minutes=7.0,
                 reading_count=len(bpms),
                 abnormal_count=abnormal_count,
                 journal_count=2,

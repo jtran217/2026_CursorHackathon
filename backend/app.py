@@ -160,7 +160,16 @@ def create_app():
                 .all()
             )
             if not readings:
-                return jsonify({"readings": [], "summary": {"count": 0}})
+                return jsonify({
+                    "readings": [],
+                    "summary": {
+                        "count": 0,
+                        "min_bpm": None,
+                        "max_bpm": None,
+                        "avg_bpm": None,
+                        "abnormal_count": 0,
+                    },
+                })
 
             bpms = [r.bpm for r in readings]
             summary = {
