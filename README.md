@@ -1,51 +1,30 @@
-# 2026_CursorHackathon
+# React + TypeScript + Vite
 
-## Project Scope
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Features
+Currently, two official plugins are available:
 
-P0:
-A) Signal Input Layer: Fakes heart rate with a python app + manual im overwhelmed button + shows the heart rate + current heart rate + Focus Strain score based on app swithing, idle time, + long session time
-B) Detect the heart rate and the decesion when certain is criteria is met
-C) intervention pop up, encourage a walk breathe clairfy etc
-E) Refocus mode: Ask user what they are working and what they need done on and suggest a way re-engage focus
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-P1:
-A) Desktop activity + browerser activity +idle vs active + session duration
-B) When session completed show stats of the work session
-C) Demo: Normal, Stress, Overload
+## Expanding the ESLint configuration
 
-## Screens
+If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
 
-Home
+- Configure the top-level `parserOptions` property like this:
 
-- Current HR
-- Overwhelmed Status (lets not call it that)
-- session + start stop
+```js
+export default {
+  // other rules...
+  parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    project: ['./tsconfig.json', './tsconfig.node.json'],
+    tsconfigRootDir: __dirname,
+  },
+}
+```
 
-Focus Mode (session state screen)
-
-- minimal + timer
-- manual intervention avaialbe
-
-Intervention Screen (Session state screen)
-
-- Help decompress
-- provide suggestion to break + encourage a reflection
-- provide guidance to begin tasks when ready
-- re-initialize next timer.
-
-Session Summary Screen (Session State complete screen)
-
-- Breakdown of session
-
-Journal
-
-- Enteries of journals + logs
-- record of heart rate
-- history of cognitive overload
-
-## Python HR Server
-
-- Create a Python server that directly sends a payload to the electron app
-  - Will be sending through json ds
+- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
+- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
+- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
