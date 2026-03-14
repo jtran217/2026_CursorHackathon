@@ -29,10 +29,14 @@ let tray: Tray | null = null
 
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    icon: path.join(process.env.VITE_PUBLIC, 'app.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
+  })
+
+  win.on('closed', () => {
+    win = null
   })
 
   // Test active push message to Renderer-process.
@@ -48,12 +52,22 @@ function createWindow() {
   }
 }
 
+function showOrCreateWindow() {
+  if (win && !win.isDestroyed()) {
+    win.show()
+    win.focus()
+  } else {
+    createWindow()
+  }
+}
+
 function createTrayIcon() {
   if (tray) {
     return
   }
   const iconPath = path.join(process.env.VITE_PUBLIC!, 'corgi_icon.png')
   const image = nativeImage.createFromPath(iconPath)
+  console.log("Creating Menu Item")
   // macOS menu bar: 22x22; Windows system tray: 16x16
   const size = process.platform === 'darwin' ? 22 : 16
   const trayImage = image.resize({ width: size, height: size })
@@ -62,10 +76,7 @@ function createTrayIcon() {
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Show App',
-      click: () => {
-        win?.show()
-        win?.focus()
-      },
+      click: () => showOrCreateWindow(),
     },
     { type: 'separator' },
     {
@@ -74,32 +85,41 @@ function createTrayIcon() {
     },
   ])
   tray.setContextMenu(contextMenu)
-  tray.on('click', () => {
-    win?.show()
-    win?.focus()
-  })
+  // Consume click so icon never opens the window (same on macOS and Windows)
+  tray.on('click', () => { })
 }
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Keep app running when window closes if tray exists; otherwise quit on Windows/Linux.
 app.on('window-all-closed', () => {
+  if (tray) {
+    return
+  }
   if (process.platform !== 'darwin') {
     app.quit()
-    win = null
   }
 })
 
 app.on('activate', () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
+  } else {
+    showOrCreateWindow()
   }
 })
 
+// Single instance: second launch focuses existing app
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    showOrCreateWindow()
+  })
+}
+
 app.whenReady().then(() => {
   createWindow()
+  createTrayIcon()
   ipcMain.handle('create-tray', () => {
     createTrayIcon()
   })

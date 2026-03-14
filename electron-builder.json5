@@ -11,13 +11,16 @@
     "dist",
     "dist-electron"
   ],
+  "icon": "public/app.png",
   "mac": {
+    "icon": "public/app.png",
     "target": [
       "dmg"
     ],
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
   "win": {
+    "icon": "public/app.png",
     "target": [
       {
         "target": "nsis",

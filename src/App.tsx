@@ -7,9 +7,7 @@ import Button from "./components/Button";
 function App() {
   return (
     <div className="min-h-screen bg-bg text-text-primary p-8">
-      <Button onClick={() => window.ipcRenderer.invoke("create-tray")}>
-        Add to Tray
-      </Button>
+      <Button>Button</Button>
     </div>
   );
 }
