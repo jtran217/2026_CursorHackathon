@@ -1,70 +1,141 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens (docs/design.md) — CSS variables for light/dark
+   Override in :root and @media (prefers-color-scheme: dark)
+   --------------------------------------------------------------------------- */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Backgrounds */
+  --app-bg-primary: #f8fafc;
+  --app-bg-elevated: #ffffff;
+  /* Text */
+  --app-text-primary: #0f172a;
+  --app-text-secondary: #64748b;
+  /* Accent */
+  --app-accent: #0ea5e9;
+  --app-accent-calm: #10b981;
+  /* Focus strain */
+  --app-strain-caution: #f59e0b;
+  --app-strain-high: #dc2626;
+  /* Border */
+  --app-border: #e2e8f0;
+  /* Focus ring */
+  --app-focus-ring: #0ea5e9;
+}
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-bg-primary: #0f172a;
+    --app-bg-elevated: #1e293b;
+    --app-text-primary: #f1f5f9;
+    --app-text-secondary: #94a3b8;
+    --app-accent: #38bdf8;
+    --app-accent-calm: #34d399;
+    --app-strain-caution: #fbbf24;
+    --app-strain-high: #f87171;
+    --app-border: #334155;
+    --app-focus-ring: #38bdf8;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Tailwind v4 @theme — design tokens as utilities
+   Using inline so vars resolve at runtime for light/dark
+   --------------------------------------------------------------------------- */
+@theme inline {
+  /* Semantic colors (map to app variables) */
+  --color-bg-primary: var(--app-bg-primary);
+  --color-bg-elevated: var(--app-bg-elevated);
+  --color-text-primary: var(--app-text-primary);
+  --color-text-secondary: var(--app-text-secondary);
+  --color-accent: var(--app-accent);
+  --color-accent-calm: var(--app-accent-calm);
+  --color-strain-caution: var(--app-strain-caution);
+  --color-strain-high: var(--app-strain-high);
+  --color-border: var(--app-border);
+
+  /* Typography — design scale (--text-* generates text-* utilities) */
+  --font-sans: Inter, system-ui, ui-sans-serif, sans-serif;
+  --text-display: 2.5rem;           /* HR, big timer */
+  --text-h1: 1.5rem;               /* screen titles */
+  --text-h2: 1.25rem;              /* section titles */
+  --text-body: 1rem;               /* default copy */
+  --text-caption: 0.875rem;        /* labels, hints */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+
+  /* Spacing scale (design: 4, 8, 12, 16, 24, 32, 48) */
+  --spacing-1: 0.25rem;   /* 4px */
+  --spacing-2: 0.5rem;    /* 8px */
+  --spacing-3: 0.75rem;   /* 12px */
+  --spacing-4: 1rem;      /* 16px */
+  --spacing-6: 1.5rem;    /* 24px */
+  --spacing-8: 2rem;      /* 32px */
+  --spacing-12: 3rem;     /* 48px */
+
+  /* Radius */
+  --radius-button: 0.5rem;   /* 8px */
+  --radius-card: 0.75rem;    /* 12px */
+
+  /* Motion */
+  --transition-duration: 200ms;
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   Base styles (design: calm, readable)
+   --------------------------------------------------------------------------- */
+:root {
+  font-family: var(--font-sans);
+  line-height: var(--line-height-normal);
+  font-weight: var(--font-weight-normal);
+  color: var(--app-text-primary);
+  background-color: var(--app-bg-primary);
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Links use accent */
+a {
+  font-weight: var(--font-weight-medium);
+  color: var(--app-accent);
+  text-decoration: inherit;
+}
+a:hover {
+  opacity: 0.9;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+/* Focus ring for accessibility (design: 2px accent outline) */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
