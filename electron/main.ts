@@ -39,7 +39,7 @@ function formatSessionTime(ms: number): string {
 function updateTrayTooltip() {
   if (!tray) return
   if (focusSessionActive) {
-    tray.setToolTip(`Session: ${formatSessionTime(sessionElapsedMs)}`)
+    tray.setToolTip(`Remaining: ${formatSessionTime(sessionElapsedMs)}`)
   } else {
     tray.setToolTip('Restore')
   }
@@ -130,24 +130,24 @@ function updateTrayContextMenu() {
   ]
   if (focusSessionActive) {
     menuItems.push({
-      label: `Session time: ${formatSessionTime(sessionElapsedMs)}`,
+      label: `Time left: ${formatSessionTime(sessionElapsedMs)}`,
       enabled: false,
     })
-  }
-  menuItems.push({
-    label: "I'm overwhelmed",
-    click: () => {
-      showOrCreateWindow()
-      if (win && !win.isDestroyed()) {
-        const sendImOverwhelmed = () => win!.webContents.send('tray-im-overwhelmed')
-        if (win.webContents.isLoading()) {
-          win.webContents.once('did-finish-load', sendImOverwhelmed)
-        } else {
-          sendImOverwhelmed()
+    menuItems.push({
+      label: "I'm overwhelmed",
+      click: () => {
+        showOrCreateWindow()
+        if (win && !win.isDestroyed()) {
+          const sendImOverwhelmed = () => win!.webContents.send('tray-im-overwhelmed')
+          if (win.webContents.isLoading()) {
+            win.webContents.once('did-finish-load', sendImOverwhelmed)
+          } else {
+            sendImOverwhelmed()
+          }
         }
-      }
-    },
-  })
+      },
+    })
+  }
   menuItems.push(
     { type: 'separator' },
     {
