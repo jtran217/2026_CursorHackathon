@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../store/sessionStore';
+import { postJournal } from '../lib/api';
 
 type Phase = 'acknowledge' | 'decompress' | 'refocus';
 
@@ -46,6 +47,13 @@ export function Intervention() {
     } else if (phase === 'decompress') {
       setPhase('refocus');
     } else {
+      if (currentSession?.sessionId) {
+        postJournal(
+          currentSession.sessionId,
+          'overwhelming_trigger',
+          userTask || 'Refocused.'
+        );
+      }
       resumeFocus();
       navigate('/focus');
     }

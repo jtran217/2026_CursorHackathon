@@ -9,16 +9,17 @@ import { Sparkline } from '../components/Sparkline';
 import { StateBadge } from '../components/StateBadge';
 
 export function Home() {
-  const { currentHR, hrHistory, cognitiveState, hrStrain, startMockHR } =
+  const { currentHR, hrHistory, cognitiveState, hrStrain, startLivePoll } =
     useHeartRateStore();
   const { startSession, triggerIntervention } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, distinctDomains, tabSwitchesPerMinute } = useActivityStore();
   const navigate = useNavigate();
 
+  // No mock on Home — use poll only. Fall back to getHeartRateLive so controller HR shows even without app session.
   useEffect(() => {
-    const cleanup = startMockHR();
-    return cleanup;
-  }, [startMockHR]);
+    const cleanupPoll = startLivePoll();
+    return cleanupPoll;
+  }, [startLivePoll]);
 
   const focusStrain = computeFocusStrain(hrStrain, contextSwitchScore, undefined, sedentaryStrain);
 

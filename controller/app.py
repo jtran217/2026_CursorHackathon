@@ -2,6 +2,8 @@
 Heart Rate Controller — Python GUI.
 Sends simulated heart rate data to the Flask backend.
 """
+from typing import Optional
+
 import json
 import random
 import time
@@ -9,9 +11,28 @@ import tkinter as tk
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
-API_URL = "http://127.0.0.1:5000/api/heart-rate"
+API_BASE = "http://127.0.0.1:5001"
+API_URL = f"{API_BASE}/api/heart-rate"
+ACTIVE_SESSION_URL = f"{API_BASE}/api/active-session"
 BPM_MIN = 40
 BPM_MAX = 180
+
+
+def fetch_active_session() -> Optional[str]:
+    for _ in range(4):
+        try:
+            req = Request(ACTIVE_SESSION_URL, method="GET")
+            with urlopen(req, timeout=3) as res:
+                if res.getcode() == 200:
+                    data = json.loads(res.read().decode())
+                    sid = data.get("session_id")
+                    if sid:
+                        return sid
+        except Exception:
+            pass
+        if _ < 3:
+            time.sleep(2)
+    return None
 
 
 def main():
@@ -30,7 +51,7 @@ def main():
     title_label = tk.Label(root, text="Heart Rate Controller", font=("", 11))
     title_label.pack(pady=(12, 4))
 
-    bpm_var = tk.StringVar(value="72")
+    bpm_var = tk.StringVar(value="0")
     bpm_label = tk.Label(root, textvariable=bpm_var, font=("TkDefaultFont", 48))
     bpm_label.pack(pady=4)
 
@@ -131,7 +152,9 @@ def main():
         nonlocal after_id, current_session_id
         if after_id is not None:
             return
-        current_session_id = f"test-session-{int(time.time() * 1000)}"
+        current_session_id = fetch_active_session()
+        if not current_session_id:
+            current_session_id = f"test-session-{int(time.time() * 1000)}"
         btn_start.config(text="Stop", bg="#D85A30")
         btn_minus.config(state="normal")
         btn_plus.config(state="normal")
@@ -147,6 +170,7 @@ def main():
         root.after_cancel(after_id)
         after_id = None
         current_session_id = None
+        bpm_var.set("0")
         btn_start.config(text="Start", bg="#BA7517")
         btn_minus.config(state="disabled")
         btn_plus.config(state="disabled")

@@ -4,6 +4,8 @@ import { useHeartRateStore, computeFocusStrain } from '../store/heartRateStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useActivityStore } from '../store/activityStore';
 import { PulseDot } from '../components/PulseDot';
+import { HRDisplay } from '../components/HRDisplay';
+import { postHeartRate } from '../lib/api';
 
 const WORK_MS = 25 * 60 * 1000;
 const BREAK_MS = 5 * 60 * 1000;
@@ -17,7 +19,7 @@ function formatTime(ms: number): string {
 
 export function FocusMode() {
   const navigate = useNavigate();
-  const { cognitiveState, currentHR, hrHistory, hrStrain, startMockHR } =
+  const { cognitiveState, currentHR, hrHistory, hrStrain, startMockHR, startLivePoll } =
     useHeartRateStore();
   const {
     currentSession,
@@ -31,6 +33,7 @@ export function FocusMode() {
     pomodoroRound,
     setPomodoroPhase,
     incrementPomodoroRound,
+    setRemainingMs,
   } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, isExtendedIdle, startTracking, distinctDomains, tabSwitchesPerMinute } =
     useActivityStore();
@@ -50,10 +53,20 @@ export function FocusMode() {
     sedentaryStrain
   );
 
+  const sessionId = currentSession?.sessionId;
+
   useEffect(() => {
-    const cleanup = startMockHR();
+    const onHRUpdate = sessionId
+      ? (bpm: number) => postHeartRate(sessionId, bpm)
+      : undefined;
+    const cleanup = startMockHR(onHRUpdate);
     return cleanup;
-  }, [startMockHR]);
+  }, [startMockHR, sessionId]);
+
+  useEffect(() => {
+    const cleanup = startLivePoll();
+    return cleanup;
+  }, [startLivePoll]);
 
   useEffect(() => {
     const cleanup = startTracking();
@@ -62,12 +75,14 @@ export function FocusMode() {
 
   // Reset phase timer whenever pomodoroPhase changes
   useEffect(() => {
+    const initial = pomodoroPhase === 'work' ? WORK_MS : BREAK_MS;
     phaseStartTimeRef.current = Date.now();
     pauseOffsetRef.current = 0;
     pausedAtRef.current = null;
     setPhaseEnded(false);
-    setRemaining(pomodoroPhase === 'work' ? WORK_MS : BREAK_MS);
-  }, [pomodoroPhase]);
+    setRemaining(initial);
+    setRemainingMs(initial);
+  }, [pomodoroPhase, setRemainingMs]);
 
   // Countdown timer — pauses and resumes based on isPaused
   useEffect(() => {
@@ -84,6 +99,7 @@ export function FocusMode() {
     const interval = setInterval(() => {
       const r = Math.max(0, duration - (Date.now() - phaseStartTimeRef.current - pauseOffsetRef.current));
       setRemaining(r);
+      setRemainingMs(r);
       if (r === 0) {
         setPhaseEnded(true);
         clearInterval(interval);
@@ -175,6 +191,11 @@ export function FocusMode() {
         >
           I'm Overwhelmed
         </button>
+      </div>
+
+      {/* Current HR — matches controller when connected */}
+      <div className="mb-8">
+        <HRDisplay value={currentHR} />
       </div>
 
       {/* Timer */}

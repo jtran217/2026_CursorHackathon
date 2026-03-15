@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { Home } from "./screens/Home";
 import { FocusMode } from "./screens/FocusMode";
-import { Intervention } from './screens/Intervention';
+import { Intervention } from "./screens/Intervention";
 import { SessionSummary } from "./screens/SessionSummary";
 import { Journal } from "./screens/Journal";
 import { useSessionStore } from "./store/sessionStore";
@@ -18,7 +18,7 @@ function TrayImOverwhelmedHandler() {
     const handler = () => {
       startSession();
       triggerIntervention();
-      navigate("/focus");
+      navigate("/intervention");
     };
     window.ipcRenderer?.on("tray-im-overwhelmed", handler);
     return () => {
@@ -57,7 +57,9 @@ function TrayEndFocusHandler() {
     const handler = () => {
       const avgHR =
         hrHistory.length > 0
-          ? Math.round(hrHistory.reduce((s, p) => s + p.value, 0) / hrHistory.length)
+          ? Math.round(
+              hrHistory.reduce((s, p) => s + p.value, 0) / hrHistory.length,
+            )
           : currentHR;
       const focusQuality = Math.max(0, Math.min(100, 100 - strainScore));
       endSession({ avgHR, peakStrain: strainScore, focusQuality });
@@ -74,6 +76,7 @@ function TrayEndFocusHandler() {
 
 function TrayFocusSessionSync() {
   const currentSession = useSessionStore((s) => s.currentSession);
+  const remainingMs = useSessionStore((s) => s.remainingMs);
   const active = currentSession != null;
 
   useEffect(() => {
@@ -81,17 +84,14 @@ function TrayFocusSessionSync() {
   }, [active]);
 
   useEffect(() => {
-    if (!active || !currentSession) return;
-    const sendElapsed = () => {
-      window.ipcRenderer?.send(
-        "tray-set-session-elapsed-ms",
-        Date.now() - currentSession.startTime
-      );
+    if (!active) return;
+    const sendRemaining = () => {
+      window.ipcRenderer?.send("tray-set-session-elapsed-ms", remainingMs);
     };
-    sendElapsed();
-    const interval = setInterval(sendElapsed, 1000);
+    sendRemaining();
+    const interval = setInterval(sendRemaining, 1000);
     return () => clearInterval(interval);
-  }, [active, currentSession]);
+  }, [active, remainingMs]);
 
   return null;
 }

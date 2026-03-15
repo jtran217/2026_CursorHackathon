@@ -76,6 +76,7 @@ export function SessionSummary() {
   const navigate = useNavigate();
   const { currentSession, saveToJournal, startSession } = useSessionStore();
   const { hrHistory } = useHeartRateStore();
+  const [reflectionText, setReflectionText] = useState('');
 
   if (!currentSession) {
     navigate('/');
@@ -86,12 +87,12 @@ export function SessionSummary() {
   const focusQuality = currentSession.focusQuality;
 
   const handleSaveAndHome = () => {
-    saveToJournal();
+    saveToJournal(reflectionText);
     navigate('/');
   };
 
   const handleNewSession = () => {
-    saveToJournal();
+    saveToJournal(reflectionText);
     startSession();
     navigate('/focus');
   };
@@ -204,7 +205,38 @@ export function SessionSummary() {
         )}
         {(currentSession.distinctDomains ?? 0) === 0 && <div className="mb-8" />}
 
-        {/* Reflection */}
+        {/* Reflection textarea */}
+        <div className="mb-6">
+          <label
+            htmlFor="reflection"
+            className="text-text-tertiary block mb-2"
+            style={{
+              fontSize: 'var(--text-xs)',
+              letterSpacing: 'var(--tracking-widest)',
+              textTransform: 'uppercase',
+            }}
+          >
+            Reflection (optional)
+          </label>
+          <textarea
+            id="reflection"
+            value={reflectionText}
+            onChange={(e) => setReflectionText(e.target.value)}
+            placeholder="How did it go? What would you do differently?"
+            className="w-full bg-bg-secondary text-text-primary border border-border"
+            style={{
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-lg)',
+              fontSize: 'var(--text-base)',
+              lineHeight: 'var(--leading-relaxed)',
+              fontFamily: 'var(--font-ui)',
+              resize: 'none',
+              minHeight: 100,
+            }}
+          />
+        </div>
+
+        {/* Reflection summary */}
         <div
           className="mb-10"
           style={{
