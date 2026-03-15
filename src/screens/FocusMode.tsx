@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHeartRateStore, computeFocusStrain } from '../store/heartRateStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useActivityStore } from '../store/activityStore';
 import { PulseDot } from '../components/PulseDot';
-import { Intervention } from './Intervention';
 
 function formatTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -17,14 +16,23 @@ export function FocusMode() {
   const navigate = useNavigate();
   const { cognitiveState, currentHR, hrHistory, hrStrain, startMockHR } =
     useHeartRateStore();
-  const { currentSession, endSession, sessionState, triggerIntervention } =
-    useSessionStore();
+  const {
+    currentSession,
+    endSession,
+    sessionState,
+    triggerIntervention,
+    isPaused,
+    pauseSession,
+    resumeSession,
+  } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, isExtendedIdle, startTracking, distinctDomains, tabSwitchesPerMinute } =
     useActivityStore();
   const [elapsed, setElapsed] = useState(0);
-  const [showMenu, setShowMenu] = useState(false);
-  const [menuTimer, setMenuTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [dismissedIdleCheck, setDismissedIdleCheck] = useState(false);
+
+  // Track accumulated pause time so the timer stays accurate across pause/resume cycles
+  const pauseOffsetRef = useRef(0);
+  const pausedAtRef = useRef<number | null>(null);
 
   const focusStrain = computeFocusStrain(
     hrStrain,
@@ -43,25 +51,42 @@ export function FocusMode() {
     return cleanup;
   }, [startTracking]);
 
+  // Timer — pauses and resumes based on isPaused
   useEffect(() => {
     if (!currentSession) return;
+    if (isPaused) {
+      // Record when we paused so we can accumulate the offset on resume
+      pausedAtRef.current = Date.now();
+      return;
+    }
+    // If we're resuming from a pause, accumulate the time we were paused
+    if (pausedAtRef.current !== null) {
+      pauseOffsetRef.current += Date.now() - pausedAtRef.current;
+      pausedAtRef.current = null;
+    }
     const interval = setInterval(() => {
-      setElapsed(Date.now() - currentSession.startTime);
+      setElapsed(Date.now() - currentSession.startTime - pauseOffsetRef.current);
     }, 1000);
     return () => clearInterval(interval);
-  }, [currentSession]);
+  }, [currentSession, isPaused]);
 
   // Reset dismissal when user comes back from extended idle
   useEffect(() => {
     if (!isExtendedIdle) setDismissedIdleCheck(false);
   }, [isExtendedIdle]);
 
-  const handleMouseMove = useCallback(() => {
-    setShowMenu(true);
-    if (menuTimer) clearTimeout(menuTimer);
-    const timer = setTimeout(() => setShowMenu(false), 3000);
-    setMenuTimer(timer);
-  }, [menuTimer]);
+  const handleBreak = () => {
+    if (isPaused) {
+      resumeSession();
+    } else {
+      pauseSession();
+    }
+  };
+
+  const handleOverwhelmed = () => {
+    triggerIntervention();
+    navigate('/intervention');
+  };
 
   const handleEndSession = () => {
     const avgHR =
@@ -95,31 +120,31 @@ export function FocusMode() {
     <div
       className="focus-screen fixed inset-0 flex flex-col items-center justify-center"
       style={bgStyle}
-      onMouseMove={handleMouseMove}
     >
       {/* Pulse dot — top right */}
       <div className="absolute top-6 right-6">
         <PulseDot state={cognitiveState} />
       </div>
 
-      {/* Overflow menu — appears on mouse movement */}
-      {showMenu && (
-        <div
-          className="absolute top-6 left-6 flex gap-2"
-          style={{
-            animation: 'stagger-in 200ms var(--ease-emerge) both',
-          }}
+      {/* Action buttons — always visible */}
+      <div className="absolute top-6 left-6 flex gap-2">
+        <button
+          type="button"
+          className="btn-ghost"
+          style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
+          onClick={handleBreak}
         >
-          <button
-            type="button"
-            className="btn-ghost"
-            style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
-            onClick={() => triggerIntervention()}
-          >
-            Take a break
-          </button>
-        </div>
-      )}
+          {isPaused ? 'Resume' : 'Take a break'}
+        </button>
+        <button
+          type="button"
+          className="btn-signal"
+          style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
+          onClick={handleOverwhelmed}
+        >
+          I'm Overwhelmed
+        </button>
+      </div>
 
       {/* Timer */}
       <div className="text-center">
@@ -128,6 +153,8 @@ export function FocusMode() {
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--text-2xl)',
+            opacity: isPaused ? 0.45 : 1,
+            transition: 'opacity 300ms var(--ease-flow)',
           }}
         >
           {formatTime(elapsed)}
@@ -140,7 +167,7 @@ export function FocusMode() {
             textTransform: 'uppercase',
           }}
         >
-          Session time
+          {isPaused ? 'Paused' : 'Session time'}
         </p>
       </div>
 
@@ -208,9 +235,6 @@ export function FocusMode() {
           </div>
         </div>
       )}
-
-      {/* Intervention overlay */}
-      {sessionState === 'intervention' && <Intervention />}
     </div>
   );
 }
