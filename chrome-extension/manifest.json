@@ -1,8 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Focus Tracker",
+  "name": "Restore App Connector",
   "version": "1.0",
-  "description": "Sends browser tab activity to the Focus desktop app for cognitive load tracking.",
+  "description": "Connecting the Restore Cognitive Load Application to browser.",
+  "icons": {
+    "16": "main_icon.png",
+    "48": "main_icon.png",
+    "128": "main_icon.png"
+  },
   "permissions": ["tabs"],
   "host_permissions": ["http://localhost:9147/*"],
   "background": {
