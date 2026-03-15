@@ -178,6 +178,12 @@ curl http://127.0.0.1:5000/api/session-summary/sess-1
 
 ---
 
+## Results
+
+See [results/README.md](results/README.md) for tools to view heart rate data in the terminal (`print_heart_rate.py`).
+
+---
+
 ## Sample data (optional)
 
 To load sample heart rate readings and journal entries for a test session:

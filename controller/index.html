@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Heart Rate Controller</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400&display=swap');
+    :root {
+      --color-bg: #EDEBE6;
+      --color-bg-secondary: #F4F2ED;
+      --color-border: #B4B2A9;
+      --color-text-primary: #2C2C2A;
+      --color-text-secondary: #5F5E5A;
+      --color-primary: #BA7517;
+      --color-alert: #D85A30;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-ui: 'DM Sans', sans-serif;
+      --text-hero: clamp(48px, 8vw, 80px);
+      --radius-lg: 16px;
+      --space-lg: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--color-bg);
+      font-family: var(--font-ui);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-lg);
+    }
+    .container {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      max-width: 400px;
+      width: 100%;
+    }
+    h1 {
+      margin: 0 0 1.5rem;
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .bpm-readout {
+      font-family: var(--font-mono);
+      font-size: var(--text-hero);
+      font-weight: 400;
+      line-height: 1.1;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    .bpm-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .field {
+      margin-bottom: 1rem;
+    }
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.25rem;
+    }
+    .field input[type="text"] {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-bg);
+    }
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    button {
+      font-family: var(--font-ui);
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: var(--color-bg-secondary);
+      border-color: var(--color-text-secondary);
+    }
+    button.primary {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white;
+    }
+    button.primary:hover {
+      filter: brightness(1.1);
+    }
+    button.signal {
+      background: var(--color-alert);
+      border-color: var(--color-alert);
+      color: white;
+    }
+    button.signal:hover {
+      filter: brightness(1.1);
+    }
+    .btn-start { flex: 1; }
+    .controls-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .controls-row button { flex: 1; }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      min-height: 1.2em;
+    }
+    .status.error { color: var(--color-alert); }
+    .status.ok { color: #639922; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Heart Rate Controller</h1>
+    <div class="bpm-readout" id="bpm">72</div>
+    <div class="bpm-label">BPM</div>
+
+    <div class="row">
+      <button type="button" class="btn-start primary" id="btn-start">Start</button>
+      <button type="button" id="btn-minus" disabled>−5</button>
+      <button type="button" id="btn-plus" disabled>+5</button>
+    </div>
+
+    <div class="controls-row">
+      <button type="button" id="btn-minus-10" disabled>−10</button>
+      <button type="button" id="btn-plus-10" disabled>+10</button>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="stress" />
+      <label for="stress" style="margin: 0; text-transform: none;">Stress (spike +40 BPM)</label>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const API_URL = 'http://127.0.0.1:5000/api/heart-rate';
+
+    const bpmEl = document.getElementById('bpm');
+    const btnStart = document.getElementById('btn-start');
+    const btnMinus = document.getElementById('btn-minus');
+    const btnPlus = document.getElementById('btn-plus');
+    const btnMinus10 = document.getElementById('btn-minus-10');
+    const btnPlus10 = document.getElementById('btn-plus-10');
+    const stressEl = document.getElementById('stress');
+    const statusEl = document.getElementById('status');
+
+    let intervalId = null;
+    let currentSessionId = null;
+    let baseBPM = 72;
+    let trend = 0;
+    let stressSpike = 0;
+    const BPM_MIN = 40;
+    const BPM_MAX = 180;
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status' + (isError ? ' error' : msg ? ' ok' : '');
+    }
+
+    function getSessionId() {
+      if (currentSessionId) return currentSessionId;
+      currentSessionId = `test-session-${Date.now()}`;
+      return currentSessionId;
+    }
+
+    function computeBPM() {
+      // Random walk when running
+      trend += (Math.random() - 0.5) * 2;
+      trend = Math.max(-5, Math.min(5, trend));
+      const noise = (Math.random() - 0.5) * 4;
+      let bpm = baseBPM + trend * 0.3 + noise * 0.2;
+
+      // Stress spike
+      if (stressEl.checked) {
+        stressSpike = Math.min(50, stressSpike + 15);
+        bpm += stressSpike;
+      } else {
+        stressSpike = Math.max(0, stressSpike - 8);
+        bpm += stressSpike;
+      }
+
+      return Math.round(Math.max(BPM_MIN, Math.min(BPM_MAX, bpm)));
+    }
+
+    async function sendHeartRate(bpm) {
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: getSessionId(),
+            bpm,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setStatus(`Error: ${err.error || res.statusText}`, true);
+          return false;
+        }
+        setStatus('Sent', false);
+        return true;
+      } catch (e) {
+        setStatus(`Backend unreachable: ${e.message}`, true);
+        return false;
+      }
+    }
+
+    function tick() {
+      const bpm = computeBPM();
+      bpmEl.textContent = bpm;
+      sendHeartRate(bpm);
+    }
+
+    function start() {
+      if (intervalId) return;
+      currentSessionId = `test-session-${Date.now()}`;
+      btnStart.textContent = 'Stop';
+      btnStart.classList.remove('primary');
+      btnStart.classList.add('signal');
+      btnMinus.disabled = false;
+      btnPlus.disabled = false;
+      btnMinus10.disabled = false;
+      btnPlus10.disabled = false;
+
+      tick();
+      intervalId = setInterval(tick, 1000);
+      setStatus('Running…');
+    }
+
+    function stop() {
+      if (!intervalId) return;
+      clearInterval(intervalId);
+      intervalId = null;
+      currentSessionId = null;
+      btnStart.textContent = 'Start';
+      btnStart.classList.remove('signal');
+      btnStart.classList.add('primary');
+      btnMinus.disabled = true;
+      btnPlus.disabled = true;
+      btnMinus10.disabled = true;
+      btnPlus10.disabled = true;
+      setStatus('');
+    }
+
+    function toggle() {
+      if (intervalId) stop();
+      else start();
+    }
+
+    btnStart.addEventListener('click', toggle);
+    btnMinus.addEventListener('click', () => { baseBPM = Math.max(BPM_MIN, baseBPM - 5); });
+    btnPlus.addEventListener('click', () => { baseBPM = Math.min(BPM_MAX, baseBPM + 5); });
+    btnMinus10.addEventListener('click', () => { baseBPM = Math.max(BPM_MIN, baseBPM - 10); });
+    btnPlus10.addEventListener('click', () => { baseBPM = Math.min(BPM_MAX, baseBPM + 10); });
+  </script>
+</body>
+</html>
