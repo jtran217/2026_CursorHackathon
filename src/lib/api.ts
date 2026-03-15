@@ -192,3 +192,63 @@ export async function getActiveSession(): Promise<{ session_id: string } | null>
     return null;
   }
 }
+
+// ─── Intervention LLM (OpenRouter-backed grounding / refocus) ─────────────────
+
+export interface GroundingResponse {
+  message: string;
+  suggestions: string[];
+}
+
+export interface RefocusResponse {
+  message: string;
+  tips: string[];
+}
+
+/** POST to backend OpenRouter-backed grounding endpoint. Returns null on error. */
+export async function postLlmGround(payload: {
+  emotion: string;
+  detail: string | null;
+}): Promise<GroundingResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/llm/ground`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as GroundingResponse & { error?: string };
+    if (!res.ok) {
+      console.warn('[api] postLlmGround error', res.status, data?.error ?? data);
+      return null;
+    }
+    if (data?.message && Array.isArray(data?.suggestions)) return data;
+    return null;
+  } catch (e) {
+    console.warn('[api] postLlmGround', e);
+    return null;
+  }
+}
+
+/** POST to backend OpenRouter-backed refocus endpoint. Returns null on error. */
+export async function postLlmRefocus(payload: {
+  emotion: string;
+  detail: string | null;
+}): Promise<RefocusResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/llm/refocus`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as RefocusResponse & { error?: string };
+    if (!res.ok) {
+      console.warn('[api] postLlmRefocus error', res.status, data?.error ?? data);
+      return null;
+    }
+    if (data?.message && Array.isArray(data?.tips)) return data;
+    return null;
+  } catch (e) {
+    console.warn('[api] postLlmRefocus', e);
+    return null;
+  }
+}

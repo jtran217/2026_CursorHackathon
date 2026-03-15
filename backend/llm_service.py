@@ -198,6 +198,9 @@ _INSTRUCTION_ECHO_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Match bullets: - * • or numbered 1. 2. 3.
+_BULLET_OR_NUMBER_RE = re.compile(r"^[\-\*•]\s*|^\d+[.)]\s*", re.IGNORECASE)
+
 
 def _is_instruction_echo(text: str) -> bool:
     if not text or len(text) < 20:
@@ -206,7 +209,7 @@ def _is_instruction_echo(text: str) -> bool:
 
 
 def _parse_message_and_bullets(text: str, list_key: str) -> dict[str, Any] | None:
-    """Parse first line as message, rest as bullet items. Returns None on failure."""
+    """Parse first line as message, rest as bullet items. Lenient: accepts - * • or numbered lists."""
     if not text or not text.strip():
         return None
     lines = [ln.strip() for ln in text.strip().split("\n") if ln.strip()]
@@ -215,12 +218,11 @@ def _parse_message_and_bullets(text: str, list_key: str) -> dict[str, Any] | Non
     message = lines[0]
     if _is_instruction_echo(message):
         return None
-    bullet_re = re.compile(r"^[\-\*•]\s*")
     items = []
     for ln in lines[1:]:
-        item = bullet_re.sub("", ln).strip()
-        if item and len(item) < 500 and not _is_instruction_echo(item):
-            items.append(item)
+        cleaned = _BULLET_OR_NUMBER_RE.sub("", ln).strip()
+        if cleaned and len(cleaned) < 500 and not _is_instruction_echo(cleaned):
+            items.append(cleaned)
     if len(items) < 1:
         return None
     return {"message": message[:500], list_key: items[:6]}
@@ -230,22 +232,28 @@ def get_grounding_suggestions(emotion: str, free_text: str | None) -> dict[str, 
     """
     Return grounding phase: { "message": str, "suggestions": list[str] }.
     Uses OpenRouter when OPENROUTER_API_KEY is set; else static fallback.
+    Goal: help the user feel GROUNDED with basic, personalized advice — not generic or hard-coded.
     """
     if emotion not in VALID_EMOTIONS:
         emotion = "other"
     free_trimmed = (free_text or "").strip()
+    system = (
+        "You are a calm, grounding wellness coach. Your job is to help the user feel HEARD and GROUNDED in the present moment. "
+        "Give brief, basic advice tailored to what they shared — never generic platitudes. "
+        "Reply with: one short sentence that validates their feeling (reference what they said if they shared details), then 3 bullet points (each line starting with -) with simple, doable grounding activities. "
+        "No preamble, no meta-commentary. Keep tone warm and present."
+    )
     if free_trimmed:
         user = (
-            f"The user feels {emotion}. They shared in their own words: \"{free_trimmed[:400]}\"\n\n"
-            "Your FIRST sentence must directly acknowledge what they said — reflect their words or situation back so they feel heard and validated. Do not give generic comfort; reference their specific concern. Then on the next lines give exactly 3 bullet points starting with - for grounding activities tailored to their situation. Be calm and supportive. Output format: one short empathetic sentence, then 3 lines each starting with -"
+            f"The user indicated they feel {emotion}. In their own words they said: \"{free_trimmed[:400]}\"\n\n"
+            "Acknowledge what they shared so they feel heard. Then give 3 concrete grounding suggestions (use - at the start of each line) that fit their situation. Focus on helping them feel grounded in the here and now."
         )
     else:
         user = (
-            f"The user feels {emotion}.\n\n"
-            "Reply with one short empathetic sentence that acknowledges this specific emotional state, then on new lines 3 bullet points starting with - for grounding activities to try right now. Be calm and supportive."
+            f"The user said they feel {emotion}.\n\n"
+            "Acknowledge this feeling in one short sentence. Then give 3 simple grounding activities (each line starting with -) they can do right now to feel more present and calm."
         )
-    system = "You are a calm, supportive wellness coach. Reply only with the requested content: one opening sentence that makes the user feel heard, then exactly 3 bullet points starting with -. No preamble, no meta-commentary."
-    content = _call_openrouter(system, user, max_tokens=200, label="grounding")
+    content = _call_openrouter(system, user, max_tokens=350, label="grounding")
     if content:
         parsed = _parse_message_and_bullets(content, "suggestions")
         if parsed:
@@ -257,22 +265,28 @@ def get_refocus_suggestions(emotion: str, free_text: str | None) -> dict[str, An
     """
     Return refocus phase: { "message": str, "tips": list[str] }.
     Uses OpenRouter when OPENROUTER_API_KEY is set; else static fallback.
+    Goal: basic, personalized advice to ease back into focus — not hard-coded.
     """
     if emotion not in VALID_EMOTIONS:
         emotion = "other"
     free_trimmed = (free_text or "").strip()
+    system = (
+        "You are a calm wellness coach helping the user ease back into focus. "
+        "Give brief, basic advice — not generic. Reference what they shared so they feel understood. "
+        "Reply with: one short motivating sentence, then 3 bullet points (each line starting with -) with actionable tips to re-enter focus. "
+        "No preamble, no meta-commentary."
+    )
     if free_trimmed:
         user = (
             f"The user feels {emotion} and is ready to return to work. They shared: \"{free_trimmed[:400]}\"\n\n"
-            "Your FIRST sentence must reference what they shared — show you remember their concern as you encourage them back. Then on the next lines give exactly 3 bullet points starting with - for actionable tips to ease back into focus, tailored to their situation. Output format: one short motivating sentence, then 3 lines each starting with -"
+            "Reference what they shared in one sentence, then give 3 practical tips (each line starting with -) to ease back into focus, tailored to their situation."
         )
     else:
         user = (
             f"The user feels {emotion} and is ready to return to work.\n\n"
-            "Reply with one short motivating sentence, then on new lines 3 bullet points starting with - for actionable tips to ease back into focus."
+            "One short encouraging sentence, then 3 bullet points (each starting with -) with simple, actionable tips to get back to focus."
         )
-    system = "You are a calm, supportive wellness coach. Reply only with the requested content: one opening sentence that references the user's situation, then exactly 3 bullet points starting with -. No preamble, no meta-commentary."
-    content = _call_openrouter(system, user, max_tokens=200, label="refocus")
+    content = _call_openrouter(system, user, max_tokens=350, label="refocus")
     if content:
         parsed = _parse_message_and_bullets(content, "tips")
         if parsed:
