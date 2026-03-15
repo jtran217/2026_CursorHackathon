@@ -1,6 +1,6 @@
 # Restore
 
-A desktop wellness assistant that monitors cognitive overload using simulated heart rate data and offers short interventions to help you refocus.
+Restore is a desktop-first productivity and wellness assistant designed to help you work smarter when your brain feels overwhelmed. Rather than adding another task manager to your workflow, Restore watches for signs of cognitive overload — using simulated heart rate data and behavioral signals like app-switching patterns and session duration — and steps in at the right moment with short, low-friction interventions: breathing exercises, movement prompts, and guided refocus flows. The goal is simple: when you're mentally overloaded, you don't need more planning tools — you need timely support that helps you reset and get back into focused work.
 
 ## Run full stack
 
