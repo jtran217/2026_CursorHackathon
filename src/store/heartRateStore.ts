@@ -39,7 +39,7 @@ interface HeartRateStore {
 
 function computeCognitiveState(hr: number): CognitiveState {
   if (hr < 65) return 'calm';
-  if (hr < 80) return 'normal';
+  if (hr < 91) return 'normal';
   if (hr < 100) return 'elevated';
   return 'overload';
 }

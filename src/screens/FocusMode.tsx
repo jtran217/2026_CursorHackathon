@@ -13,7 +13,7 @@ const WORK_MS = 25 * 60 * 1000;
 const BREAK_MS = 5 * 60 * 1000;
 
 // How long HR must stay elevated/overload before showing the worried-Briosh prompt
-const HR_WARN_DELAY_MS = 30_000;
+const HR_WARN_DELAY_MS = 10_000;
 // How long to wait before re-showing the HR prompt after the user says "No"
 const HR_COOLDOWN_MS = 5 * 60 * 1000;
 
