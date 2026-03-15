@@ -50,5 +50,24 @@
     "vite-plugin-electron": "^0.28.6",
     "vite-plugin-electron-renderer": "^0.14.5"
   },
-  "main": "dist-electron/main.js"
+  "main": "dist-electron/main.js",
+  "build": {
+    "appId": "com.cursorhackathon.restore",
+    "productName": "Restore",
+    "directories": {
+      "output": "release"
+    },
+    "files": ["dist/**/*", "dist-electron/**/*"],
+    "icon": "public/main_icon.png",
+    "mac": {
+      "icon": "public/main_icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "icon": "public/main_icon.png"
+    },
+    "linux": {
+      "icon": "public/main_icon.png"
+    }
+  }
 }

@@ -26,6 +26,24 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 let tray: Tray | null = null
+let focusSessionActive = false
+let sessionElapsedMs = 0
+
+function formatSessionTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function updateTrayTooltip() {
+  if (!tray) return
+  if (focusSessionActive) {
+    tray.setToolTip(`Session: ${formatSessionTime(sessionElapsedMs)}`)
+  } else {
+    tray.setToolTip('Restore')
+  }
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -65,6 +83,75 @@ function showOrCreateWindow() {
   }
 }
 
+function updateTrayContextMenu() {
+  if (!tray) return
+  const focusItem = focusSessionActive
+    ? {
+      label: 'End Focus Session',
+      click: () => {
+        showOrCreateWindow()
+        if (win && !win.isDestroyed()) {
+          const sendEndFocus = () => win!.webContents.send('tray-end-focus-session')
+          if (win.webContents.isLoading()) {
+            win.webContents.once('did-finish-load', sendEndFocus)
+          } else {
+            sendEndFocus()
+          }
+        }
+      },
+    }
+    : {
+      label: 'Start Focus Session',
+      click: () => {
+        showOrCreateWindow()
+        if (win && !win.isDestroyed()) {
+          const sendStartFocus = () => win!.webContents.send('tray-start-focus-session')
+          if (win.webContents.isLoading()) {
+            win.webContents.once('did-finish-load', sendStartFocus)
+          } else {
+            sendStartFocus()
+          }
+        }
+      },
+    }
+  const menuItems: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'Show Restore',
+      click: () => showOrCreateWindow(),
+    },
+    focusItem,
+  ]
+  if (focusSessionActive) {
+    menuItems.push({
+      label: `Session time: ${formatSessionTime(sessionElapsedMs)}`,
+      enabled: false,
+    })
+  }
+  menuItems.push({
+    label: "I'm overwhelmed",
+    click: () => {
+      showOrCreateWindow()
+      if (win && !win.isDestroyed()) {
+        const sendImOverwhelmed = () => win!.webContents.send('tray-im-overwhelmed')
+        if (win.webContents.isLoading()) {
+          win.webContents.once('did-finish-load', sendImOverwhelmed)
+        } else {
+          sendImOverwhelmed()
+        }
+      }
+    },
+  })
+  menuItems.push(
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => app.quit(),
+    }
+  )
+  tray.setContextMenu(Menu.buildFromTemplate(menuItems))
+  updateTrayTooltip()
+}
+
 function createTrayIcon() {
   if (tray) {
     return
@@ -75,19 +162,7 @@ function createTrayIcon() {
   const size = process.platform === 'darwin' ? 22 : 16
   const trayImage = image.resize({ width: size, height: size })
   tray = new Tray(trayImage)
-  tray.setToolTip('Restore')
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Show Restore',
-      click: () => showOrCreateWindow(),
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => app.quit(),
-    },
-  ])
-  tray.setContextMenu(contextMenu)
+  updateTrayContextMenu()
   // Consume click so icon never opens the window (same on macOS and Windows)
   tray.on('click', () => { })
 }
@@ -228,17 +303,34 @@ app.whenReady().then(() => {
   createWindow()
   createTrayIcon()
 
+  // Creating the tray features
   ipcMain.handle('create-tray', () => {
     createTrayIcon()
   })
 
-  ipcMain.on('activity-start', () => {
-    activityMonitor.start()
-    tabServer.start()
+  ipcMain.on('tray-set-focus-session-active', (_event, active: boolean) => {
+    focusSessionActive = active
+    if (tray) {
+      updateTrayContextMenu()
+      updateTrayTooltip()
+    }
   })
+  ipcMain.on('tray-set-session-elapsed-ms', (_event, ms: number) => {
+    sessionElapsedMs = ms
+    if (tray && focusSessionActive) {
+      updateTrayContextMenu()
+      updateTrayTooltip()
+    }
 
-  ipcMain.on('activity-stop', () => {
-    activityMonitor.stop()
-    tabServer.stop()
+    // Activity Tracking
+    ipcMain.on('activity-start', () => {
+      activityMonitor.start()
+      tabServer.start()
+    })
+
+    ipcMain.on('activity-stop', () => {
+      activityMonitor.stop()
+      tabServer.stop()
+    })
   })
 })
