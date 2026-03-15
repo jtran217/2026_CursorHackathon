@@ -1,16 +1,18 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useHeartRateStore } from '../store/heartRateStore';
+import { useHeartRateStore, computeFocusStrain } from '../store/heartRateStore';
 import { useSessionStore } from '../store/sessionStore';
+import { useActivityStore } from '../store/activityStore';
 import { HRDisplay } from '../components/HRDisplay';
 import { PulseDot } from '../components/PulseDot';
 import { Sparkline } from '../components/Sparkline';
 import { StateBadge } from '../components/StateBadge';
 
 export function Home() {
-  const { currentHR, hrHistory, cognitiveState, strainScore, startMockHR } =
+  const { currentHR, hrHistory, cognitiveState, hrStrain, startMockHR } =
     useHeartRateStore();
   const { startSession, triggerIntervention } = useSessionStore();
+  const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, distinctDomains, tabSwitchesPerMinute } = useActivityStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,12 +20,14 @@ export function Home() {
     return cleanup;
   }, [startMockHR]);
 
+  const focusStrain = computeFocusStrain(hrStrain, contextSwitchScore, undefined, sedentaryStrain);
+
   const strainLevel =
-    strainScore < 25
+    focusStrain < 25
       ? 'low'
-      : strainScore < 50
+      : focusStrain < 50
         ? 'moderate'
-        : strainScore < 75
+        : focusStrain < 75
           ? 'high'
           : 'critical';
 
@@ -84,9 +88,9 @@ export function Home() {
           Focus strain
         </p>
 
-        <div className="flex items-baseline gap-2 mb-6">
+        <div className="flex items-baseline gap-2 mb-2">
           <span className={`strain-score strain-score--${strainLevel}`}>
-            {strainScore}
+            {focusStrain}
           </span>
           <span
             className="text-text-tertiary"
@@ -97,6 +101,24 @@ export function Home() {
           >
             / 100
           </span>
+        </div>
+        <div className="mb-6 space-y-1">
+          {distinctApps > 0 && (
+            <p
+              className="text-text-tertiary"
+              style={{ fontSize: 'var(--text-xs)' }}
+            >
+              {distinctApps} app{distinctApps !== 1 ? 's' : ''} · {avgDwellTime}s avg dwell
+            </p>
+          )}
+          {distinctDomains > 0 && (
+            <p
+              className="text-text-tertiary"
+              style={{ fontSize: 'var(--text-xs)' }}
+            >
+              {distinctDomains} site{distinctDomains !== 1 ? 's' : ''} · {tabSwitchesPerMinute}/min tab switches
+            </p>
+          )}
         </div>
 
         <div

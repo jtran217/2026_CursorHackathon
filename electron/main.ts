@@ -1,6 +1,8 @@
-import { app, BrowserWindow, Tray, nativeImage, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, Tray, nativeImage, Menu, ipcMain, powerMonitor } from 'electron'
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import http from 'node:http'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -193,11 +195,126 @@ if (!gotTheLock) {
   })
 }
 
+// ---------------------------------------------------------------------------
+// Activity Monitor — polls frontmost app + idle time every 5s
+// ---------------------------------------------------------------------------
+class ActivityMonitor {
+  private interval: ReturnType<typeof setInterval> | null = null
+
+  start() {
+    if (this.interval) return
+
+    this.interval = setInterval(() => {
+      if (!win || win.isDestroyed()) return
+
+      let frontApp = 'Unknown'
+      try {
+        frontApp = execSync(
+          `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
+          { encoding: 'utf-8', timeout: 3000 }
+        ).trim()
+      } catch {
+        // osascript can fail if accessibility permissions are missing
+      }
+
+      const idleSeconds = powerMonitor.getSystemIdleTime()
+
+      win.webContents.send('activity-update', {
+        app: frontApp,
+        idleSeconds,
+        timestamp: Date.now(),
+      })
+    }, 5000)
+  }
+
+  stop() {
+    if (this.interval) {
+      clearInterval(this.interval)
+      this.interval = null
+    }
+  }
+}
+
+const activityMonitor = new ActivityMonitor()
+
+// ---------------------------------------------------------------------------
+// Tab Server — local HTTP server on port 9147 to receive Chrome extension events
+// ---------------------------------------------------------------------------
+const TAB_SERVER_PORT = 9147
+
+class TabServer {
+  private server: http.Server | null = null
+
+  start() {
+    if (this.server) return
+
+    this.server = http.createServer((req, res) => {
+      // Handle CORS preflight
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204)
+        res.end()
+        return
+      }
+
+      if (req.method === 'POST' && req.url === '/tab-event') {
+        let body = ''
+        req.on('data', (chunk) => { body += chunk.toString() })
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body)
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('tab-update', data)
+            }
+            res.writeHead(200)
+            res.end('ok')
+          } catch {
+            res.writeHead(400)
+            res.end('bad request')
+          }
+        })
+      } else {
+        res.writeHead(404)
+        res.end()
+      }
+    })
+
+    this.server.listen(TAB_SERVER_PORT, '127.0.0.1')
+
+    this.server.on('error', () => {
+      // Port may already be in use — silently ignore
+    })
+  }
+
+  stop() {
+    if (this.server) {
+      this.server.close()
+      this.server = null
+    }
+  }
+}
+
+const tabServer = new TabServer()
+
 app.whenReady().then(() => {
   createWindow()
   createTrayIcon()
+
   ipcMain.handle('create-tray', () => {
     createTrayIcon()
+  })
+
+  ipcMain.on('activity-start', () => {
+    activityMonitor.start()
+    tabServer.start()
+  })
+
+  ipcMain.on('activity-stop', () => {
+    activityMonitor.stop()
+    tabServer.stop()
   })
   ipcMain.on('tray-set-focus-session-active', (_event, active: boolean) => {
     focusSessionActive = active

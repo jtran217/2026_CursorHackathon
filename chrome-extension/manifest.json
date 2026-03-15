@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Focus Tracker",
+  "version": "1.0",
+  "description": "Sends browser tab activity to the Focus desktop app for cognitive load tracking.",
+  "permissions": ["tabs"],
+  "host_permissions": ["http://localhost:9147/*"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

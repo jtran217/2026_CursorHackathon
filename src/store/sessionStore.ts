@@ -9,6 +9,10 @@ interface SessionData {
   avgHR: number;
   peakStrain: number;
   focusQuality: number;
+  distinctApps?: number;
+  avgDwellTime?: number;
+  distinctDomains?: number;
+  tabSwitchesPerMinute?: number;
 }
 
 interface SessionStore {

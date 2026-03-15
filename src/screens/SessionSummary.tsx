@@ -162,7 +162,7 @@ export function SessionSummary() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <StatCard
             label="Avg HR"
             value={currentSession.avgHR}
@@ -173,11 +173,36 @@ export function SessionSummary() {
             value={currentSession.peakStrain}
             unit="/100"
           />
+        </div>
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <StatCard
             label="Interventions"
             value={currentSession.interventionCount}
           />
+          <StatCard
+            label="Apps used"
+            value={currentSession.distinctApps ?? 0}
+          />
+          <StatCard
+            label="Avg dwell"
+            value={currentSession.avgDwellTime ?? 0}
+            unit="sec"
+          />
         </div>
+        {(currentSession.distinctDomains ?? 0) > 0 && (
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <StatCard
+              label="Sites visited"
+              value={currentSession.distinctDomains ?? 0}
+            />
+            <StatCard
+              label="Tab switches"
+              value={currentSession.tabSwitchesPerMinute ?? 0}
+              unit="/min"
+            />
+          </div>
+        )}
+        {(currentSession.distinctDomains ?? 0) === 0 && <div className="mb-8" />}
 
         {/* Reflection */}
         <div

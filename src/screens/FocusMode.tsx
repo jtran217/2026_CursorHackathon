@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useHeartRateStore } from '../store/heartRateStore';
+import { useHeartRateStore, computeFocusStrain } from '../store/heartRateStore';
 import { useSessionStore } from '../store/sessionStore';
+import { useActivityStore } from '../store/activityStore';
 import { PulseDot } from '../components/PulseDot';
 import { Intervention } from './Intervention';
 
@@ -14,18 +15,33 @@ function formatTime(ms: number): string {
 
 export function FocusMode() {
   const navigate = useNavigate();
-  const { cognitiveState, currentHR, hrHistory, strainScore, startMockHR } =
+  const { cognitiveState, currentHR, hrHistory, hrStrain, startMockHR } =
     useHeartRateStore();
   const { currentSession, endSession, sessionState, triggerIntervention } =
     useSessionStore();
+  const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, isExtendedIdle, startTracking, distinctDomains, tabSwitchesPerMinute } =
+    useActivityStore();
   const [elapsed, setElapsed] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
   const [menuTimer, setMenuTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [dismissedIdleCheck, setDismissedIdleCheck] = useState(false);
+
+  const focusStrain = computeFocusStrain(
+    hrStrain,
+    contextSwitchScore,
+    currentSession?.startTime,
+    sedentaryStrain
+  );
 
   useEffect(() => {
     const cleanup = startMockHR();
     return cleanup;
   }, [startMockHR]);
+
+  useEffect(() => {
+    const cleanup = startTracking();
+    return cleanup;
+  }, [startTracking]);
 
   useEffect(() => {
     if (!currentSession) return;
@@ -34,6 +50,11 @@ export function FocusMode() {
     }, 1000);
     return () => clearInterval(interval);
   }, [currentSession]);
+
+  // Reset dismissal when user comes back from extended idle
+  useEffect(() => {
+    if (!isExtendedIdle) setDismissedIdleCheck(false);
+  }, [isExtendedIdle]);
 
   const handleMouseMove = useCallback(() => {
     setShowMenu(true);
@@ -47,8 +68,16 @@ export function FocusMode() {
       hrHistory.length > 0
         ? Math.round(hrHistory.reduce((s, p) => s + p.value, 0) / hrHistory.length)
         : currentHR;
-    const focusQuality = Math.max(0, Math.min(100, 100 - strainScore));
-    endSession({ avgHR, peakStrain: strainScore, focusQuality });
+    const focusQuality = Math.max(0, Math.min(100, 100 - focusStrain));
+    endSession({
+      avgHR,
+      peakStrain: focusStrain,
+      focusQuality,
+      distinctApps,
+      avgDwellTime,
+      distinctDomains,
+      tabSwitchesPerMinute,
+    });
     navigate('/summary');
   };
 
@@ -131,6 +160,54 @@ export function FocusMode() {
       >
         End session
       </button>
+
+      {/* Extended idle check-in — gentle, non-blocking */}
+      {isExtendedIdle && !dismissedIdleCheck && sessionState !== 'intervention' && (
+        <div
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 card"
+          style={{
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-lg) var(--space-xl)',
+            maxWidth: 360,
+            width: '90%',
+            animation: 'panel-slide-in 400ms var(--ease-emerge) both',
+          }}
+        >
+          <p
+            className="text-text-primary mb-1"
+            style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}
+          >
+            Still there?
+          </p>
+          <p
+            className="text-text-secondary mb-4"
+            style={{
+              fontSize: 'var(--text-sm)',
+              lineHeight: 'var(--leading-relaxed)',
+            }}
+          >
+            You've been away for a while. Want to end the session or keep going?
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              className="btn-ghost"
+              style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
+              onClick={handleEndSession}
+            >
+              End session
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
+              onClick={() => setDismissedIdleCheck(true)}
+            >
+              Keep going
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Intervention overlay */}
       {sessionState === 'intervention' && <Intervention />}

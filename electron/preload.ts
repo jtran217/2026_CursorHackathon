@@ -18,7 +18,32 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const [channel, ...omit] = args
     return ipcRenderer.invoke(channel, ...omit)
   },
+})
 
-  // You can expose other APTs you need here.
-  // ...
+// --------- Activity tracking API ---------
+contextBridge.exposeInMainWorld('activityBridge', {
+  startTracking() {
+    ipcRenderer.send('activity-start')
+  },
+  stopTracking() {
+    ipcRenderer.send('activity-stop')
+  },
+  onUpdate(callback: (data: { app: string; idleSeconds: number; timestamp: number }) => void) {
+    const handler = (_event: Electron.IpcRendererEvent, data: { app: string; idleSeconds: number; timestamp: number }) => {
+      callback(data)
+    }
+    ipcRenderer.on('activity-update', handler)
+    return () => {
+      ipcRenderer.off('activity-update', handler)
+    }
+  },
+  onTabUpdate(callback: (data: { url: string; title: string; timestamp: number }) => void) {
+    const handler = (_event: Electron.IpcRendererEvent, data: { url: string; title: string; timestamp: number }) => {
+      callback(data)
+    }
+    ipcRenderer.on('tab-update', handler)
+    return () => {
+      ipcRenderer.off('tab-update', handler)
+    }
+  },
 })
