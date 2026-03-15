@@ -159,17 +159,18 @@ export async function getGroundingSuggestions(
   emotionKey: EmotionKey,
   freeText?: string
 ): Promise<GroundingResponse> {
+  const payload = { emotion: emotionKey, detail: freeText ?? null };
+  console.log('[OpenRouter/ground] REQUEST sent to backend:', payload);
   try {
     const res = await fetch(`${API_BASE}/api/llm/ground`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emotion: emotionKey, detail: freeText ?? null }),
+      body: JSON.stringify(payload),
     });
-    if (res.ok) {
-      const data = (await res.json()) as GroundingResponse;
-      if (data?.message && Array.isArray(data?.suggestions)) {
-        return data;
-      }
+    const data = (await res.json()) as GroundingResponse;
+    console.log('[OpenRouter/ground] RESPONSE received:', { ok: res.ok, message: data?.message, suggestionsCount: data?.suggestions?.length });
+    if (res.ok && data?.message && Array.isArray(data?.suggestions)) {
+      return data;
     }
   } catch (e) {
     console.warn('[interventionAI] getGroundingSuggestions', e);
@@ -187,17 +188,18 @@ export async function getRefocusSuggestions(
   emotionKey: EmotionKey,
   freeText?: string
 ): Promise<RefocusResponse> {
+  const payload = { emotion: emotionKey, detail: freeText ?? null };
+  console.log('[OpenRouter/refocus] REQUEST sent to backend:', payload);
   try {
     const res = await fetch(`${API_BASE}/api/llm/refocus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emotion: emotionKey, detail: freeText ?? null }),
+      body: JSON.stringify(payload),
     });
-    if (res.ok) {
-      const data = (await res.json()) as RefocusResponse;
-      if (data?.message && Array.isArray(data?.tips)) {
-        return data;
-      }
+    const data = (await res.json()) as RefocusResponse;
+    console.log('[OpenRouter/refocus] RESPONSE received:', { ok: res.ok, message: data?.message, tipsCount: data?.tips?.length });
+    if (res.ok && data?.message && Array.isArray(data?.tips)) {
+      return data;
     }
   } catch (e) {
     console.warn('[interventionAI] getRefocusSuggestions', e);

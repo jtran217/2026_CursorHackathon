@@ -6,7 +6,6 @@ import { FocusMode } from "./screens/FocusMode";
 import { Intervention } from "./screens/Intervention";
 import { SessionSummary } from "./screens/SessionSummary";
 import { Journal } from "./screens/Journal";
-import { DownloadScreen } from "./screens/DownloadScreen";
 import { useSessionStore } from "./store/sessionStore";
 import { useHeartRateStore } from "./store/heartRateStore";
 import { API_BASE } from "./lib/api";
@@ -98,7 +97,7 @@ function TrayFocusSessionSync() {
   return null;
 }
 
-type InitPhase = "connecting" | "ready" | "needs_download";
+type InitPhase = "connecting" | "ready";
 
 function AppGate() {
   const [phase, setPhase] = useState<InitPhase>("connecting");
@@ -106,41 +105,24 @@ function AppGate() {
   useEffect(() => {
     let cancelled = false;
 
-    async function waitForBackend(): Promise<boolean> {
+    async function waitForBackend() {
       for (let i = 0; i < 60; i++) {
-        if (cancelled) return false;
+        if (cancelled) return;
         try {
           const res = await fetch(`${API_BASE}/api/health`);
-          if (res.ok) return true;
+          if (res.ok) {
+            setPhase("ready");
+            return;
+          }
         } catch {
           // backend not up yet
         }
         await new Promise((r) => setTimeout(r, 500));
       }
-      return false;
+      setPhase("ready");
     }
 
-    async function run() {
-      const backendUp = await waitForBackend();
-      if (cancelled) return;
-      if (!backendUp) {
-        setPhase("ready");
-        return;
-      }
-      try {
-        const res = await fetch(`${API_BASE}/api/llm/status`);
-        if (!res.ok) {
-          setPhase("needs_download");
-          return;
-        }
-        const data = (await res.json()) as { ready?: boolean };
-        setPhase(data.ready ? "ready" : "needs_download");
-      } catch {
-        setPhase("needs_download");
-      }
-    }
-
-    run();
+    waitForBackend();
     return () => {
       cancelled = true;
     };
@@ -185,10 +167,6 @@ function AppGate() {
         `}</style>
       </div>
     );
-  }
-
-  if (phase === "needs_download") {
-    return <DownloadScreen onComplete={() => setPhase("ready")} />;
   }
 
   return (

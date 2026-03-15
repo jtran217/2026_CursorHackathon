@@ -50,5 +50,6 @@ backend/app.db
 backend-dist/
 build/
 
-# llm
-backend/.flow_llm_ready
+# Env (API keys)
+.env
+backend/.env
