@@ -37,16 +37,15 @@ Two independent processes. Run in any order:
 
 To drive the app's displayed heartbeat with the controller:
 
-1. Start a session in the app (Start Session).
-2. Start the controller and click **Start**.
-3. The controller automatically picks up the app's session via the backend — no pasting needed.
-4. The app will show the controller's heart rate. Without the controller, the app uses mock HR.
+1. **Start a focus session in the app first** (Start Session) — the backend writes the session ID to a file.
+2. Start the controller and click **Start**. The controller reads the session from the file each tick (no HTTP polling).
+3. The app will show the controller's heart rate. Without the controller, the app uses mock HR.
 
 If the backend is not running, the controller UI still updates but requests will fail. A status message shows success or error.
 
 ## API
 
-The controller sends `POST http://127.0.0.1:5000/api/heart-rate` with:
+The controller sends `POST http://127.0.0.1:39762/api/heart-rate` with:
 
 ```json
 { "session_id": "...", "bpm": 72 }
