@@ -19,18 +19,22 @@ interface SessionStore {
   sessionState: SessionState;
   currentSession: SessionData | null;
   pastSessions: SessionData[];
+  isPaused: boolean;
 
   startSession: () => void;
   endSession: (data?: Partial<SessionData>) => void;
   triggerIntervention: () => void;
   resumeFocus: () => void;
   saveToJournal: () => void;
+  pauseSession: () => void;
+  resumeSession: () => void;
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessionState: 'idle',
   currentSession: null,
   pastSessions: JSON.parse(localStorage.getItem('flow-sessions') || '[]'),
+  isPaused: false,
 
   startSession: () => {
     set({
@@ -73,6 +77,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   resumeFocus: () => {
     set({ sessionState: 'focus' });
+  },
+
+  pauseSession: () => {
+    set({ isPaused: true });
+  },
+
+  resumeSession: () => {
+    set({ isPaused: false });
   },
 
   saveToJournal: () => {
