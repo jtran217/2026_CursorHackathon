@@ -2,11 +2,11 @@
 // interventionAI.ts
 //
 // LLM layer for the Intervention screen's grounding & refocus phases.
-// Calls backend /api/llm/ground and /api/llm/refocus; falls back to static
-// maps on network or server error.
+// Calls backend OpenRouter-backed /api/llm/ground and /api/llm/refocus;
+// falls back to static maps only on network or server error.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { API_BASE } from './api';
+import { postLlmGround, postLlmRefocus } from './api';
 
 /** Emotion keys surfaced by the ground_question phase chip selector. */
 export type EmotionKey =
@@ -151,56 +151,38 @@ const REFOCUS_MAP: Record<EmotionKey, RefocusResponse> = {
 
 /**
  * Returns grounding suggestions tailored to the user's emotional state.
+ * Hits backend OpenRouter endpoint; fallback to static only on failure.
  *
  * @param emotionKey  - The emotion chip the user selected.
- * @param freeText    - Optional free-text the user typed (passed to LLM).
+ * @param freeText    - Optional free-text the user typed (passed to OpenRouter).
  */
 export async function getGroundingSuggestions(
   emotionKey: EmotionKey,
   freeText?: string
 ): Promise<GroundingResponse> {
-  try {
-    const res = await fetch(`${API_BASE}/api/llm/ground`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emotion: emotionKey, detail: freeText ?? null }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as GroundingResponse;
-      if (data?.message && Array.isArray(data?.suggestions)) {
-        return data;
-      }
-    }
-  } catch (e) {
-    console.warn('[interventionAI] getGroundingSuggestions', e);
+  const payload = { emotion: emotionKey, detail: freeText?.trim() ?? null };
+  const data = await postLlmGround(payload);
+  if (data?.message && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+    return data;
   }
   return GROUNDING_MAP[emotionKey] ?? GROUNDING_MAP.other;
 }
 
 /**
  * Returns refocus tips tailored to the user's emotional state.
+ * Hits backend OpenRouter endpoint; fallback to static only on failure.
  *
  * @param emotionKey  - The emotion chip the user selected (same as grounding call).
- * @param freeText    - Optional free-text the user typed (passed to LLM).
+ * @param freeText    - Optional free-text the user typed (passed to OpenRouter).
  */
 export async function getRefocusSuggestions(
   emotionKey: EmotionKey,
   freeText?: string
 ): Promise<RefocusResponse> {
-  try {
-    const res = await fetch(`${API_BASE}/api/llm/refocus`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emotion: emotionKey, detail: freeText ?? null }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as RefocusResponse;
-      if (data?.message && Array.isArray(data?.tips)) {
-        return data;
-      }
-    }
-  } catch (e) {
-    console.warn('[interventionAI] getRefocusSuggestions', e);
+  const payload = { emotion: emotionKey, detail: freeText?.trim() ?? null };
+  const data = await postLlmRefocus(payload);
+  if (data?.message && Array.isArray(data.tips) && data.tips.length > 0) {
+    return data;
   }
   return REFOCUS_MAP[emotionKey] ?? REFOCUS_MAP.other;
 }

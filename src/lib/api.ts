@@ -193,27 +193,62 @@ export async function getActiveSession(): Promise<{ session_id: string } | null>
   }
 }
 
-/** LLM first-boot: true if model is already downloaded and ready. */
-export async function getLlmStatus(): Promise<{ ready: boolean } | null> {
+// ─── Intervention LLM (OpenRouter-backed grounding / refocus) ─────────────────
+
+export interface GroundingResponse {
+  message: string;
+  suggestions: string[];
+}
+
+export interface RefocusResponse {
+  message: string;
+  tips: string[];
+}
+
+/** POST to backend OpenRouter-backed grounding endpoint. Returns null on error. */
+export async function postLlmGround(payload: {
+  emotion: string;
+  detail: string | null;
+}): Promise<GroundingResponse | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/llm/status`);
-    if (!res.ok) return null;
-    return (await res.json()) as { ready: boolean };
+    const res = await fetch(`${API_BASE}/api/llm/ground`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as GroundingResponse & { error?: string };
+    if (!res.ok) {
+      console.warn('[api] postLlmGround error', res.status, data?.error ?? data);
+      return null;
+    }
+    if (data?.message && Array.isArray(data?.suggestions)) return data;
+    return null;
   } catch (e) {
-    console.warn('[api] getLlmStatus', e);
+    console.warn('[api] postLlmGround', e);
     return null;
   }
 }
 
-/** LLM first-boot: ensure model is downloaded; returns true on success. */
-export async function ensureLlmReady(): Promise<boolean> {
+/** POST to backend OpenRouter-backed refocus endpoint. Returns null on error. */
+export async function postLlmRefocus(payload: {
+  emotion: string;
+  detail: string | null;
+}): Promise<RefocusResponse | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/llm/ensure-ready`, { method: 'POST' });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { ready?: boolean };
-    return data.ready === true;
+    const res = await fetch(`${API_BASE}/api/llm/refocus`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as RefocusResponse & { error?: string };
+    if (!res.ok) {
+      console.warn('[api] postLlmRefocus error', res.status, data?.error ?? data);
+      return null;
+    }
+    if (data?.message && Array.isArray(data?.tips)) return data;
+    return null;
   } catch (e) {
-    console.warn('[api] ensureLlmReady', e);
-    return false;
+    console.warn('[api] postLlmRefocus', e);
+    return null;
   }
 }

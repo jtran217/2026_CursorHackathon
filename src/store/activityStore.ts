@@ -37,6 +37,8 @@ interface ActivityStore {
   sedentaryStrain: number;
   /** True when idle ≥ 5 continuous minutes (triggers "Still there?" check-in) */
   isExtendedIdle: boolean;
+  /** True when the most recent browser tab event is youtube.com and was within the last 30s */
+  isYouTubeActive: boolean;
   isTracking: boolean;
   trackingStartTime: number | null;
 
@@ -49,7 +51,8 @@ interface ActivityStore {
 
 const WINDOW_MS = 5 * 60 * 1000; // 5-minute rolling window for switch metrics
 const BREAK_THRESHOLD_S = 120;    // 2 min idle = meaningful break
-const EXTENDED_IDLE_S = 300;      // 5 min idle = "Still there?" check-in
+const EXTENDED_IDLE_S = 10;       // 10s idle for testing (restore to 300 for production)
+const YOUTUBE_STALE_MS = 30_000;  // tab event older than 30s is no longer "active"
 
 function computeMetrics(
   events: ActivityEvent[],
@@ -69,6 +72,7 @@ function computeMetrics(
       : 0,
     sedentaryStrain: 0,
     isExtendedIdle: false,
+    isYouTubeActive: false,
   };
 
   if (events.length < 2) return baseMetrics;
@@ -158,6 +162,13 @@ function computeMetrics(
     Math.max(0, Math.round(((minutesSinceBreak - 30) / 60) * 100))
   );
 
+  // YouTube active: most recent tab event is youtube.com and received within 30s
+  const latestTab = tabEvents.length > 0 ? tabEvents[tabEvents.length - 1] : null;
+  const isYouTubeActive =
+    latestTab !== null &&
+    latestTab.domain === 'youtube.com' &&
+    Date.now() - latestTab.timestamp < YOUTUBE_STALE_MS;
+
   return {
     distinctApps,
     avgDwellTime: Math.round(avgDwellTime),
@@ -169,6 +180,7 @@ function computeMetrics(
     minutesSinceBreak: Math.round(minutesSinceBreak),
     sedentaryStrain,
     isExtendedIdle,
+    isYouTubeActive,
   };
 }
 
@@ -185,6 +197,7 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
   minutesSinceBreak: 0,
   sedentaryStrain: 0,
   isExtendedIdle: false,
+  isYouTubeActive: false,
   isTracking: false,
   trackingStartTime: null,
 

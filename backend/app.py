@@ -3,9 +3,15 @@ Flask app for heart rate and journal API.
 """
 import os
 import statistics
+from pathlib import Path
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+
+from dotenv import load_dotenv
+
+# Load backend/.env so OPENROUTER_API_KEY is available
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import db
 import llm_service
@@ -91,18 +97,6 @@ def create_app():
     def health():
         return jsonify({"status": "ok"})
 
-    @app.route("/api/llm/status")
-    def get_llm_status():
-        return jsonify({"ready": llm_service.is_ready()}), 200
-
-    @app.route("/api/llm/ensure-ready", methods=["POST"])
-    def post_llm_ensure_ready():
-        try:
-            llm_service.ensure_ready()
-            return jsonify({"ready": True}), 200
-        except Exception as e:
-            return jsonify({"error": str(e), "ready": False}), 503
-
     @app.route("/api/llm/ground", methods=["POST"])
     def post_llm_ground():
         data = request.get_json(silent=True)
@@ -119,12 +113,8 @@ def create_app():
             return jsonify({"error": "emotion must be one of: anxious, distracted, overwhelmed, frustrated, exhausted, other"}), 400
         if detail is not None and not isinstance(detail, str):
             return jsonify({"error": "detail must be a string or null"}), 400
-        try:
-            result = llm_service.get_grounding_suggestions(emotion, detail.strip() if detail else None)
-            return jsonify(result), 200
-        except Exception:
-            fallback = llm_service._fallback_grounding(emotion)
-            return jsonify(fallback), 200
+        result = llm_service.get_grounding_suggestions(emotion, detail.strip() if detail else None)
+        return jsonify(result), 200
 
     @app.route("/api/llm/refocus", methods=["POST"])
     def post_llm_refocus():
@@ -142,12 +132,8 @@ def create_app():
             return jsonify({"error": "emotion must be one of: anxious, distracted, overwhelmed, frustrated, exhausted, other"}), 400
         if detail is not None and not isinstance(detail, str):
             return jsonify({"error": "detail must be a string or null"}), 400
-        try:
-            result = llm_service.get_refocus_suggestions(emotion, detail.strip() if detail else None)
-            return jsonify(result), 200
-        except Exception:
-            fallback = llm_service._fallback_refocus(emotion)
-            return jsonify(fallback), 200
+        result = llm_service.get_refocus_suggestions(emotion, detail.strip() if detail else None)
+        return jsonify(result), 200
 
     @app.route("/api/active-session", methods=["GET"])
     def get_active_session():

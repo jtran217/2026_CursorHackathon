@@ -51,4 +51,6 @@ backend/app.db
 backend-dist/
 build/
 
-# llm
+# Env (API keys)
+.env
+backend/.env

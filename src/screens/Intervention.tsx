@@ -335,7 +335,30 @@ export function Intervention() {
         {/* ── Phase 4: Grounding suggestions ── */}
         {phase === 'grounding' && groundingSuggestions && (
           <div>
-            <PhaseHeading>Here's something to try.</PhaseHeading>
+            <PhaseHeading>
+              {(selectedEmotion || emotionFreeText.trim()) ? "We hear you." : "Here's something to try."}
+            </PhaseHeading>
+            {(selectedEmotion || emotionFreeText.trim()) && (
+              <div
+                className="text-text-secondary"
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  lineHeight: 'var(--leading-relaxed)',
+                  marginBottom: 'var(--space-lg)',
+                  padding: 'var(--space-md)',
+                  background: 'var(--color-bg-secondary)',
+                  borderRadius: 'var(--radius-md)',
+                  borderLeft: '3px solid var(--color-focus)',
+                }}
+              >
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>You shared: </span>
+                {emotionFreeText.trim() ? (
+                  <span style={{ fontStyle: 'italic' }}>"{emotionFreeText.trim()}"</span>
+                ) : (
+                  <span>{EMOTION_CHIPS.find(c => c.key === selectedEmotion)?.label ?? selectedEmotion}</span>
+                )}
+              </div>
+            )}
             <p
               className="text-text-secondary"
               style={{
@@ -361,6 +384,23 @@ export function Intervention() {
         {phase === 'refocus_suggestions' && refocusSuggestions && (
           <div>
             <PhaseHeading>When you're ready to come back...</PhaseHeading>
+            {emotionFreeText.trim() && (
+              <div
+                className="text-text-secondary"
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  lineHeight: 'var(--leading-relaxed)',
+                  marginBottom: 'var(--space-lg)',
+                  padding: 'var(--space-md)',
+                  background: 'var(--color-bg-secondary)',
+                  borderRadius: 'var(--radius-md)',
+                  borderLeft: '3px solid var(--color-focus)',
+                }}
+              >
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Remember what you shared: </span>
+                <span style={{ fontStyle: 'italic' }}>"{emotionFreeText.trim()}"</span>
+              </div>
+            )}
             <p
               className="text-text-secondary"
               style={{

@@ -1,44 +1,29 @@
 """
-Reusable LLM service for intervention grounding/refocus and future features.
-Uses Hugging Face transformers with lazy-loaded model; falls back to static
-responses on parse failure or errors.
+LLM service for intervention grounding/refocus via OpenRouter API.
+Falls back to static responses when API key is missing or on error.
 """
+import json
 import os
 import re
+import urllib.request
 from typing import Any
-
-SENTINEL_FILENAME = ".flow_llm_ready"
-
-
-def _sentinel_path() -> str:
-    """Path to file that marks model as already downloaded (first boot done)."""
-    base = os.environ.get("FLOW_USER_DATA")
-    if not base or not os.path.isdir(base):
-        base = os.getcwd()
-    return os.path.join(base, SENTINEL_FILENAME)
-
-
-def is_ready() -> bool:
-    """True if the model has been downloaded and is ready (first boot already done)."""
-    return os.path.isfile(_sentinel_path())
-
-
-def ensure_ready() -> None:
-    """Download and load the model if needed; write sentinel so we skip next time."""
-    if is_ready():
-        return
-    _get_model()
-    path = _sentinel_path()
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
-    with open(path, "w") as f:
-        f.write("1")
 
 # Emotion keys must match frontend EmotionKey in interventionAI.ts
 VALID_EMOTIONS = frozenset(
     {"anxious", "distracted", "overwhelmed", "frustrated", "exhausted", "other"}
 )
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = "openai/gpt-3.5-turbo"
+
+
+def _get_api_key() -> str | None:
+    """API key from environment (e.g. from backend/.env via python-dotenv)."""
+    return os.environ.get("OPENROUTER_API_KEY")
+
+
+def _get_model_id() -> str:
+    return os.environ.get("OPENROUTER_MODEL", DEFAULT_MODEL)
 
 
 def _fallback_grounding(emotion: str) -> dict[str, Any]:
@@ -157,117 +142,153 @@ def _fallback_refocus(emotion: str) -> dict[str, Any]:
     return fallbacks.get(emotion, fallbacks["other"])
 
 
-_model = None
-_tokenizer = None
-
-
-def _get_model():
-    """Lazy-load model and tokenizer (distilgpt-2) on first use."""
-    global _model, _tokenizer
-    if _model is None:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
-        _tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
-        _model = AutoModelForCausalLM.from_pretrained("distilgpt2")
-        _model.eval()
-    return _model, _tokenizer
-
-
-def _generate(prompt: str, max_new_tokens: int = 120) -> str:
-    """Run model and return decoded text (no prompt included in output)."""
-    import torch
-
-    model, tokenizer = _get_model()
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=256)
-    with torch.no_grad():
-        out = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=True,
-            temperature=0.8,
-            pad_token_id=tokenizer.eos_token_id,
+def _call_openrouter(system: str, user: str, max_tokens: int = 200, label: str = "openrouter") -> str | None:
+    """Call OpenRouter chat completions; return content or None on error."""
+    api_key = _get_api_key()
+    if not api_key or not api_key.strip():
+        return None
+    body = {
+        "model": _get_model_id(),
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "max_tokens": max_tokens,
+        "temperature": 0.7,
+    }
+    # Log request (redact key)
+    print(f"[OpenRouter] --- REQUEST ({label}) ---")
+    print(f"[OpenRouter] model: {body['model']}, max_tokens: {body['max_tokens']}")
+    print(f"[OpenRouter] system: {system[:200]}{'...' if len(system) > 200 else ''}")
+    print(f"[OpenRouter] user: {user[:500]}{'...' if len(user) > 500 else ''}")
+    print(f"[OpenRouter] ------------------------")
+    try:
+        req = urllib.request.Request(
+            OPENROUTER_URL,
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key.strip()}",
+            },
+            method="POST",
         )
-    # Decode only the new tokens
-    full = tokenizer.decode(out[0], skip_special_tokens=True)
-    if full.startswith(prompt):
-        return full[len(prompt) :].lstrip()
-    return full
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        content = (data.get("choices") or [{}])[0].get("message", {}).get("content")
+        # Log response
+        print(f"[OpenRouter] --- RESPONSE ({label}) ---")
+        print(f"[OpenRouter] raw content: {repr(content)[:500]}{'...' if content and len(repr(content)) > 500 else ''}")
+        if data.get("usage"):
+            print(f"[OpenRouter] usage: {data['usage']}")
+        print(f"[OpenRouter] -------------------------")
+        return content.strip() if isinstance(content, str) and content else None
+    except Exception as e:
+        print(f"[OpenRouter] --- ERROR ({label}) ---")
+        print(f"[OpenRouter] {type(e).__name__}: {e}")
+        print(f"[OpenRouter] -------------------------")
+        return None
+
+
+# Reject model output that echoes the prompt instruction
+_INSTRUCTION_ECHO_PATTERNS = re.compile(
+    r"reply\s+with\s+\d*\s*key\s+points|"
+    r"bullet\s+points\s+starting|"
+    r"ease\s+back\s+into\s+focus|"
+    r"on\s+new\s+lines\s+\d",
+    re.IGNORECASE,
+)
+
+# Match bullets: - * • or numbered 1. 2. 3.
+_BULLET_OR_NUMBER_RE = re.compile(r"^[\-\*•]\s*|^\d+[.)]\s*", re.IGNORECASE)
+
+
+def _is_instruction_echo(text: str) -> bool:
+    if not text or len(text) < 20:
+        return False
+    return bool(_INSTRUCTION_ECHO_PATTERNS.search(text))
 
 
 def _parse_message_and_bullets(text: str, list_key: str) -> dict[str, Any] | None:
-    """
-    Parse model output into message (first line) and list of bullet items.
-    list_key is 'suggestions' or 'tips'. Returns None if parsing fails.
-    """
+    """Parse first line as message, rest as bullet items. Lenient: accepts - * • or numbered lists."""
     if not text or not text.strip():
         return None
     lines = [ln.strip() for ln in text.strip().split("\n") if ln.strip()]
     if not lines:
         return None
     message = lines[0]
-    # Strip leading bullet chars for readability
-    bullet_re = re.compile(r"^[\-\*•]\s*")
+    if _is_instruction_echo(message):
+        return None
     items = []
     for ln in lines[1:]:
-        item = bullet_re.sub("", ln).strip()
-        if item and len(item) < 500:
-            items.append(item)
+        cleaned = _BULLET_OR_NUMBER_RE.sub("", ln).strip()
+        if cleaned and len(cleaned) < 500 and not _is_instruction_echo(cleaned):
+            items.append(cleaned)
     if len(items) < 1:
         return None
-    return {"message": message[: 500], list_key: items[: 6]}
+    return {"message": message[:500], list_key: items[:6]}
 
 
 def get_grounding_suggestions(emotion: str, free_text: str | None) -> dict[str, Any]:
     """
-    Return grounding phase response: { "message": str, "suggestions": list[str] }.
-    Uses LLM when available; falls back to static content on error or parse failure.
+    Return grounding phase: { "message": str, "suggestions": list[str] }.
+    Uses OpenRouter when OPENROUTER_API_KEY is set; else static fallback.
+    Goal: help the user feel GROUNDED with basic, personalized advice — not generic or hard-coded.
     """
     if emotion not in VALID_EMOTIONS:
         emotion = "other"
-    prompt = (
-        "The user feels "
-        + emotion
-        + "."
+    free_trimmed = (free_text or "").strip()
+    system = (
+        "You are a calm, grounding wellness coach. Your job is to help the user feel HEARD and GROUNDED in the present moment. "
+        "Give brief, basic advice tailored to what they shared — never generic platitudes. "
+        "Reply with: one short sentence that validates their feeling (reference what they said if they shared details), then 3 bullet points (each line starting with -) with simple, doable grounding activities. "
+        "No preamble, no meta-commentary. Keep tone warm and present."
     )
-    if free_text and free_text.strip():
-        prompt += " They said: " + free_text.strip()[: 200] + "."
-    prompt += (
-        "\n\nReply with one short empathetic sentence, then on new lines 3 bullet points "
-        "starting with - for grounding activities to try right now. Be calm and supportive.\n\n"
-    )
-    try:
-        raw = _generate(prompt, max_new_tokens=100)
-        parsed = _parse_message_and_bullets(raw, "suggestions")
+    if free_trimmed:
+        user = (
+            f"The user indicated they feel {emotion}. In their own words they said: \"{free_trimmed[:400]}\"\n\n"
+            "Acknowledge what they shared so they feel heard. Then give 3 concrete grounding suggestions (use - at the start of each line) that fit their situation. Focus on helping them feel grounded in the here and now."
+        )
+    else:
+        user = (
+            f"The user said they feel {emotion}.\n\n"
+            "Acknowledge this feeling in one short sentence. Then give 3 simple grounding activities (each line starting with -) they can do right now to feel more present and calm."
+        )
+    content = _call_openrouter(system, user, max_tokens=350, label="grounding")
+    if content:
+        parsed = _parse_message_and_bullets(content, "suggestions")
         if parsed:
             return parsed
-    except Exception:
-        pass
     return _fallback_grounding(emotion)
 
 
 def get_refocus_suggestions(emotion: str, free_text: str | None) -> dict[str, Any]:
     """
-    Return refocus phase response: { "message": str, "tips": list[str] }.
-    Uses LLM when available; falls back to static content on error or parse failure.
+    Return refocus phase: { "message": str, "tips": list[str] }.
+    Uses OpenRouter when OPENROUTER_API_KEY is set; else static fallback.
+    Goal: basic, personalized advice to ease back into focus — not hard-coded.
     """
     if emotion not in VALID_EMOTIONS:
         emotion = "other"
-    prompt = (
-        "The user feels "
-        + emotion
-        + " and is ready to return to work."
+    free_trimmed = (free_text or "").strip()
+    system = (
+        "You are a calm wellness coach helping the user ease back into focus. "
+        "Give brief, basic advice — not generic. Reference what they shared so they feel understood. "
+        "Reply with: one short motivating sentence, then 3 bullet points (each line starting with -) with actionable tips to re-enter focus. "
+        "No preamble, no meta-commentary."
     )
-    if free_text and free_text.strip():
-        prompt += " They said: " + free_text.strip()[: 200] + "."
-    prompt += (
-        "\n\nReply with one short motivating sentence, then on new lines 3 bullet points "
-        "starting with - for actionable tips to ease back into focus.\n\n"
-    )
-    try:
-        raw = _generate(prompt, max_new_tokens=100)
-        parsed = _parse_message_and_bullets(raw, "tips")
+    if free_trimmed:
+        user = (
+            f"The user feels {emotion} and is ready to return to work. They shared: \"{free_trimmed[:400]}\"\n\n"
+            "Reference what they shared in one sentence, then give 3 practical tips (each line starting with -) to ease back into focus, tailored to their situation."
+        )
+    else:
+        user = (
+            f"The user feels {emotion} and is ready to return to work.\n\n"
+            "One short encouraging sentence, then 3 bullet points (each starting with -) with simple, actionable tips to get back to focus."
+        )
+    content = _call_openrouter(system, user, max_tokens=350, label="refocus")
+    if content:
+        parsed = _parse_message_and_bullets(content, "tips")
         if parsed:
             return parsed
-    except Exception:
-        pass
     return _fallback_refocus(emotion)
