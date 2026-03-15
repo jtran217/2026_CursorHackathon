@@ -1,6 +1,7 @@
 """
 Flask app for heart rate and journal API.
 """
+import os
 import statistics
 from datetime import datetime
 from flask import Flask, request, jsonify
@@ -459,4 +460,6 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("BACKEND_PORT", 5001))
+    is_frozen = getattr(__import__('sys'), 'frozen', False)
+    app.run(host='127.0.0.1', port=port, debug=not is_frozen, use_reloader=not is_frozen)

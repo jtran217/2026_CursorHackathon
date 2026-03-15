@@ -1,30 +1,129 @@
-# React + TypeScript + Vite
+# Restore
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A desktop wellness assistant that monitors cognitive overload using simulated heart rate data and offers short interventions to help you refocus.
 
-Currently, two official plugins are available:
+Built with Electron + React + Vite (frontend) and Flask + SQLite (backend), bundled into a single macOS app via PyInstaller.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+- Node.js 18+
+- Python 3.x with a virtual environment at `.venv/`
+- Install Python dependencies:
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install -r backend/requirements.txt
+  ```
 
-- Configure the top-level `parserOptions` property like this:
+---
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+## Development
+
+Start the Vite dev server and Electron together. The backend (Flask) is spawned automatically by Electron on port 5001.
+
+```bash
+npm install
+npm run dev
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+The backend must be able to run via `python app.py` from the `backend/` directory. Make sure your `.venv` is activated or `python` resolves to the correct interpreter.
+
+---
+
+## Production Build (macOS)
+
+The full build compiles the Python backend into a standalone binary via PyInstaller, then packages everything into a macOS `.app` using electron-builder.
+
+```bash
+npm run build
+```
+
+This runs the following steps in order:
+
+1. `npm run build:backend` — PyInstaller bundles `backend/app.py` into `backend-dist/restore-backend`
+2. `tsc` — TypeScript compilation
+3. `vite build` — builds the React frontend and Electron main/preload
+4. `electron-builder` — packages everything into `release/`
+
+Output files:
+- `release/mac-arm64/Restore.app` — unpacked app (use for quick testing)
+- `release/Restore-0.0.0-arm64.dmg` — DMG installer
+
+---
+
+## Running the Release on macOS
+
+Because the app is unsigned, macOS Gatekeeper will block it. Strip the quarantine flag before opening:
+
+```bash
+xattr -cr release/mac-arm64/Restore.app
+open release/mac-arm64/Restore.app
+```
+
+> The DMG (`release/Restore-0.0.0-arm64.dmg`) may fail to open on macOS Sequoia (15.x) with error -10673 due to Gatekeeper restrictions on unsigned DMGs. Use the `.app` directly from `release/mac-arm64/` instead.
+
+To verify the backend started successfully:
+
+```bash
+curl http://localhost:5001/api/health
+# Expected: {"status": "ok"}
+```
+
+---
+
+## Quitting the App Safely
+
+Always quit via the **tray icon** (menu bar) → **Quit**. This triggers the `before-quit` handler which cleanly stops the embedded Flask backend before Electron exits.
+
+Avoid force-quitting (Cmd+Q on the window, or Activity Monitor force kill), as this can leave the backend process running and holding port 5001.
+
+If port 5001 is stuck after an unclean exit:
+
+```bash
+lsof -ti :5001 | xargs kill -9
+```
+
+---
+
+## Cleaning Build Artifacts
+
+```bash
+npm run clean
+```
+
+Removes `dist/`, `release/`, `backend-dist/`, and `build/` (PyInstaller work directory).
+
+---
+
+## Project Structure
+
+```
+├── backend/          # Flask API (heart rate, journal, session summary)
+├── controller/       # Standalone Python GUI for simulating heart rate
+├── chrome-extension/ # Browser tab tracking (sends events to Electron on port 9147)
+├── electron/         # Electron main process and preload
+├── src/              # React frontend
+├── scripts/          # Build scripts (build-backend.sh)
+└── public/           # Static assets (icons)
+```
+
+---
+
+## Backend API
+
+The Flask backend runs on `http://localhost:5001` and exposes:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| POST | `/api/heart-rate` | Submit a heart rate reading |
+| GET | `/api/heart-rate/session/:id` | Get all readings for a session |
+| GET | `/api/heart-rate/latest?session_id=` | Get latest reading for a session |
+| POST | `/api/journal` | Submit a journal entry |
+| GET | `/api/journal/session/:id` | Get all journal entries for a session |
+| POST | `/api/session-summary` | Generate/update session summary |
+| GET | `/api/session-summary/:id` | Get session summary |
+
+SQLite database is stored at `~/Library/Application Support/Restore/app.db` when running the packaged app.

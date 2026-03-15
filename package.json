@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build:backend": "bash scripts/build-backend.sh",
+    "build": "npm run build:backend && tsc && vite build && electron-builder",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "clean": "rm -rf dist release"
+    "clean": "rm -rf dist release backend-dist build"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -58,6 +59,12 @@
       "output": "release"
     },
     "files": ["dist/**/*", "dist-electron/**/*"],
+    "extraResources": [
+      {
+        "from": "backend-dist/restore-backend",
+        "to": "backend/restore-backend"
+      }
+    ],
     "icon": "public/main_icon.png",
     "mac": {
       "icon": "public/main_icon.png",
