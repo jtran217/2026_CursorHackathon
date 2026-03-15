@@ -45,3 +45,7 @@ __pycache__/
 backend/.venv/
 backend/app.db
 *.db
+
+# PyInstaller build artifacts
+backend-dist/
+build/

@@ -1,6 +1,7 @@
 """
 Flask app for heart rate and journal API.
 """
+import os
 import statistics
 from datetime import datetime
 from flask import Flask, request, jsonify
@@ -15,6 +16,9 @@ FALLBACK_ABNORMAL_MIN_BPM = 120
 FALLBACK_ABNORMAL_MAX_BPM = 40
 
 JOURNAL_SOURCES = ("overwhelming_trigger", "session_ended")
+
+# In-memory active session (app registers, controller fetches)
+_active_session_id = None
 
 
 def create_app():
@@ -39,9 +43,10 @@ def create_app():
         return bpm >= high_threshold or bpm <= low_threshold
 
     def serialize_heart_rate(reading):
+        ts = reading.timestamp.isoformat() + "Z" if reading.timestamp else None
         return {
             "id": reading.id,
-            "timestamp": reading.timestamp.isoformat() if reading.timestamp else None,
+            "timestamp": ts,
             "bpm": reading.bpm,
             "session_id": reading.session_id,
             "is_abnormal": reading.is_abnormal,
@@ -81,6 +86,31 @@ def create_app():
     @app.route("/api/health")
     def health():
         return jsonify({"status": "ok"})
+
+    @app.route("/api/active-session", methods=["GET"])
+    def get_active_session():
+        global _active_session_id
+        if _active_session_id is None:
+            return jsonify({"error": "No active session"}), 404
+        return jsonify({"session_id": _active_session_id})
+
+    @app.route("/api/active-session", methods=["POST"])
+    def set_active_session():
+        global _active_session_id
+        data = request.get_json(silent=True)
+        if data is None or not isinstance(data, dict):
+            return jsonify({"error": "Request body must be valid JSON"}), 400
+        session_id = data.get("session_id")
+        if session_id is None or not isinstance(session_id, str) or session_id.strip() == "":
+            return jsonify({"error": "session_id is required and must be a non-empty string"}), 400
+        _active_session_id = session_id.strip()
+        return jsonify({"session_id": _active_session_id}), 200
+
+    @app.route("/api/active-session", methods=["DELETE"])
+    def clear_active_session():
+        global _active_session_id
+        _active_session_id = None
+        return jsonify({"status": "cleared"}), 200
 
     # ---- Site classification (Hugging Face zero-shot, local) ----
     @app.route("/api/setup-warmup", methods=["GET", "POST"])
@@ -208,6 +238,40 @@ def create_app():
             return jsonify(
                 {"readings": [serialize_heart_rate(r) for r in readings], "summary": summary}
             )
+        finally:
+            session.close()
+
+    @app.route("/api/heart-rate/active")
+    def get_heart_rate_active():
+        global _active_session_id
+        if _active_session_id is None:
+            return jsonify({"error": "No active session"}), 404
+        session = db.get_session()
+        try:
+            reading = (
+                session.query(models.HeartRateReading)
+                .filter(models.HeartRateReading.session_id == _active_session_id)
+                .order_by(models.HeartRateReading.timestamp.desc())
+                .first()
+            )
+            if not reading:
+                return jsonify({"error": "No readings found for active session"}), 404
+            return jsonify(serialize_heart_rate(reading))
+        finally:
+            session.close()
+
+    @app.route("/api/heart-rate/live")
+    def get_heart_rate_live():
+        session = db.get_session()
+        try:
+            reading = (
+                session.query(models.HeartRateReading)
+                .order_by(models.HeartRateReading.timestamp.desc())
+                .first()
+            )
+            if not reading:
+                return jsonify({"error": "No heart rate readings"}), 404
+            return jsonify(serialize_heart_rate(reading))
         finally:
             session.close()
 
@@ -485,4 +549,6 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("BACKEND_PORT", 5001))
+    is_frozen = getattr(__import__('sys'), 'frozen', False)
+    app.run(host='127.0.0.1', port=port, debug=not is_frozen, use_reloader=not is_frozen)

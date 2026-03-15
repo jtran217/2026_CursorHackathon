@@ -5,6 +5,11 @@ import { useSessionStore } from '../store/sessionStore';
 import { useActivityStore } from '../store/activityStore';
 import { getMaxMinutesOnSite } from '../config';
 import { PulseDot } from '../components/PulseDot';
+import { HRDisplay } from '../components/HRDisplay';
+import { postHeartRate } from '../lib/api';
+
+const WORK_MS = 25 * 60 * 1000;
+const BREAK_MS = 5 * 60 * 1000;
 
 function formatTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -15,7 +20,7 @@ function formatTime(ms: number): string {
 
 export function FocusMode() {
   const navigate = useNavigate();
-  const { cognitiveState, currentHR, hrHistory, hrStrain, startMockHR } =
+  const { cognitiveState, currentHR, hrHistory, hrStrain, startMockHR, startLivePoll } =
     useHeartRateStore();
   const {
     currentSession,
@@ -25,10 +30,16 @@ export function FocusMode() {
     isPaused,
     pauseSession,
     resumeSession,
+    pomodoroPhase,
+    pomodoroRound,
+    setPomodoroPhase,
+    incrementPomodoroRound,
+    setRemainingMs,
   } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, isExtendedIdle, startTracking, distinctDomains, tabSwitchesPerMinute, lastSiteClassification, tabEvents } =
     useActivityStore();
-  const [elapsed, setElapsed] = useState(0);
+  const [remaining, setRemaining] = useState(WORK_MS);
+  const [phaseEnded, setPhaseEnded] = useState(false);
   const [dismissedIdleCheck, setDismissedIdleCheck] = useState(false);
 
   // Track accumulated pause time so the timer stays accurate across pause/resume cycles
@@ -43,6 +54,7 @@ export function FocusMode() {
   const FOCUS_STRAIN_NOTIFY_THRESHOLD = 65;
   const NOTIFICATION_DEBOUNCE_MS = 10 * 60 * 1000; // 10 minutes
   const TIME_ON_SITE_CHECK_INTERVAL_MS = 30 * 1000; // check every 30s
+  const phaseStartTimeRef = useRef(Date.now());
 
   const focusStrain = computeFocusStrain(
     hrStrain,
@@ -51,34 +63,60 @@ export function FocusMode() {
     sedentaryStrain
   );
 
+  const sessionId = currentSession?.sessionId;
+
   useEffect(() => {
-    const cleanup = startMockHR();
+    const onHRUpdate = sessionId
+      ? (bpm: number) => postHeartRate(sessionId, bpm)
+      : undefined;
+    const cleanup = startMockHR(onHRUpdate);
     return cleanup;
-  }, [startMockHR]);
+  }, [startMockHR, sessionId]);
+
+  useEffect(() => {
+    const cleanup = startLivePoll();
+    return cleanup;
+  }, [startLivePoll]);
 
   useEffect(() => {
     const cleanup = startTracking();
     return cleanup;
   }, [startTracking]);
 
-  // Timer — pauses and resumes based on isPaused
+  // Reset phase timer whenever pomodoroPhase changes
   useEffect(() => {
-    if (!currentSession) return;
+    const initial = pomodoroPhase === 'work' ? WORK_MS : BREAK_MS;
+    phaseStartTimeRef.current = Date.now();
+    pauseOffsetRef.current = 0;
+    pausedAtRef.current = null;
+    setPhaseEnded(false);
+    setRemaining(initial);
+    setRemainingMs(initial);
+  }, [pomodoroPhase, setRemainingMs]);
+
+  // Countdown timer — pauses and resumes based on isPaused
+  useEffect(() => {
+    if (!currentSession || phaseEnded) return;
     if (isPaused) {
-      // Record when we paused so we can accumulate the offset on resume
       pausedAtRef.current = Date.now();
       return;
     }
-    // If we're resuming from a pause, accumulate the time we were paused
     if (pausedAtRef.current !== null) {
       pauseOffsetRef.current += Date.now() - pausedAtRef.current;
       pausedAtRef.current = null;
     }
+    const duration = pomodoroPhase === 'work' ? WORK_MS : BREAK_MS;
     const interval = setInterval(() => {
-      setElapsed(Date.now() - currentSession.startTime - pauseOffsetRef.current);
+      const r = Math.max(0, duration - (Date.now() - phaseStartTimeRef.current - pauseOffsetRef.current));
+      setRemaining(r);
+      setRemainingMs(r);
+      if (r === 0) {
+        setPhaseEnded(true);
+        clearInterval(interval);
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [currentSession, isPaused]);
+  }, [currentSession, isPaused, pomodoroPhase, phaseEnded]);
 
   // Reset dismissal when user comes back from extended idle
   useEffect(() => {
@@ -149,6 +187,15 @@ export function FocusMode() {
     navigate('/intervention');
   };
 
+  const handleStartBreak = () => {
+    setPomodoroPhase('break');
+  };
+
+  const handleStartNextRound = () => {
+    incrementPomodoroRound();
+    setPomodoroPhase('work');
+  };
+
   const handleEndSession = () => {
     const avgHR =
       hrHistory.length > 0
@@ -207,6 +254,11 @@ export function FocusMode() {
         </button>
       </div>
 
+      {/* Current HR — matches controller when connected */}
+      <div className="mb-8">
+        <HRDisplay value={currentHR} />
+      </div>
+
       {/* Timer */}
       <div className="text-center">
         <p
@@ -218,7 +270,7 @@ export function FocusMode() {
             transition: 'opacity 300ms var(--ease-flow)',
           }}
         >
-          {formatTime(elapsed)}
+          {formatTime(remaining)}
         </p>
         <p
           className="text-text-tertiary mt-2"
@@ -228,9 +280,76 @@ export function FocusMode() {
             textTransform: 'uppercase',
           }}
         >
-          {isPaused ? 'Paused' : 'Session time'}
+          {isPaused
+            ? 'Paused'
+            : pomodoroPhase === 'work'
+              ? `Focus \u2022 Round ${pomodoroRound}`
+              : 'Break'}
         </p>
       </div>
+
+      {/* Phase-end banner */}
+      {phaseEnded && (
+        <div
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 card"
+          style={{
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-lg) var(--space-xl)',
+            maxWidth: 360,
+            width: '90%',
+            animation: 'panel-slide-in 400ms var(--ease-emerge) both',
+          }}
+        >
+          <p
+            className="text-text-primary mb-1"
+            style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}
+          >
+            {pomodoroPhase === 'work' ? 'Nice work!' : "Break's over."}
+          </p>
+          <p
+            className="text-text-secondary mb-4"
+            style={{
+              fontSize: 'var(--text-sm)',
+              lineHeight: 'var(--leading-relaxed)',
+            }}
+          >
+            {pomodoroPhase === 'work'
+              ? 'Time for a 5-minute break.'
+              : 'Ready for another round?'}
+          </p>
+          <div className="flex gap-2 justify-end">
+            {pomodoroPhase === 'work' ? (
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
+                onClick={handleStartBreak}
+              >
+                Start Break
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
+                  onClick={handleEndSession}
+                >
+                  End Session
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ fontSize: 'var(--text-sm)', padding: '6px 14px' }}
+                  onClick={handleStartNextRound}
+                >
+                  Start Round {pomodoroRound + 1}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* End session */}
       <button

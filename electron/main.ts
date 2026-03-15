@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Tray, nativeImage, Menu, ipcMain, powerMonitor, Notification } from 'electron'
-import { execSync } from 'node:child_process'
+import { execSync, spawn, ChildProcess } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import http from 'node:http'
@@ -28,6 +28,35 @@ let win: BrowserWindow | null
 let tray: Tray | null = null
 let focusSessionActive = false
 let sessionElapsedMs = 0
+let backendProcess: ChildProcess | null = null
+
+function startBackend() {
+  const dbPath = path.join(app.getPath('userData'), 'app.db')
+  const env = { ...process.env, DATABASE_URL: `sqlite:///${dbPath}`, BACKEND_PORT: '5001' }
+
+  if (VITE_DEV_SERVER_URL) {
+    // In dev mode, spawn Flask directly using the local Python interpreter
+    backendProcess = spawn('python', ['app.py'], {
+      cwd: path.join(process.env.APP_ROOT, 'backend'),
+      env,
+    })
+  } else {
+    // In production, use the PyInstaller-bundled binary from extraResources
+    const backendBinary = path.join(process.resourcesPath, 'backend', 'restore-backend')
+    backendProcess = spawn(backendBinary, [], { env })
+  }
+
+  backendProcess.on('error', (err) => {
+    console.error('[backend] Failed to start:', err)
+  })
+}
+
+function stopBackend() {
+  if (backendProcess) {
+    backendProcess.kill()
+    backendProcess = null
+  }
+}
 
 function formatSessionTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000)
@@ -39,7 +68,7 @@ function formatSessionTime(ms: number): string {
 function updateTrayTooltip() {
   if (!tray) return
   if (focusSessionActive) {
-    tray.setToolTip(`Session: ${formatSessionTime(sessionElapsedMs)}`)
+    tray.setToolTip(`Remaining: ${formatSessionTime(sessionElapsedMs)}`)
   } else {
     tray.setToolTip('Restore')
   }
@@ -55,6 +84,13 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
+  })
+
+  win.on('close', (event) => {
+    if (tray && !(app as any).isQuitting) {
+      event.preventDefault()
+      win?.hide()
+    }
   })
 
   win.on('closed', () => {
@@ -123,24 +159,24 @@ function updateTrayContextMenu() {
   ]
   if (focusSessionActive) {
     menuItems.push({
-      label: `Session time: ${formatSessionTime(sessionElapsedMs)}`,
+      label: `Time left: ${formatSessionTime(sessionElapsedMs)}`,
       enabled: false,
     })
-  }
-  menuItems.push({
-    label: "I'm overwhelmed",
-    click: () => {
-      showOrCreateWindow()
-      if (win && !win.isDestroyed()) {
-        const sendImOverwhelmed = () => win!.webContents.send('tray-im-overwhelmed')
-        if (win.webContents.isLoading()) {
-          win.webContents.once('did-finish-load', sendImOverwhelmed)
-        } else {
-          sendImOverwhelmed()
+    menuItems.push({
+      label: "I'm overwhelmed",
+      click: () => {
+        showOrCreateWindow()
+        if (win && !win.isDestroyed()) {
+          const sendImOverwhelmed = () => win!.webContents.send('tray-im-overwhelmed')
+          if (win.webContents.isLoading()) {
+            win.webContents.once('did-finish-load', sendImOverwhelmed)
+          } else {
+            sendImOverwhelmed()
+          }
         }
-      }
-    },
-  })
+      },
+    })
+  }
   menuItems.push(
     { type: 'separator' },
     {
@@ -166,6 +202,10 @@ function createTrayIcon() {
   // Consume click so icon never opens the window (same on macOS and Windows)
   tray.on('click', () => { })
 }
+
+app.on('before-quit', () => {
+  (app as any).isQuitting = true
+})
 
 // Keep app running when window closes if tray exists; otherwise quit on Windows/Linux.
 app.on('window-all-closed', () => {
@@ -343,7 +383,12 @@ class TabServer {
 
 const tabServer = new TabServer()
 
+app.on('before-quit', () => {
+  stopBackend()
+})
+
 app.whenReady().then(() => {
+  startBackend()
   createWindow()
   createTrayIcon()
 
