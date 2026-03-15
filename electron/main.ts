@@ -39,7 +39,7 @@ function formatSessionTime(ms: number): string {
 function updateTrayTooltip() {
   if (!tray) return
   if (focusSessionActive) {
-    tray.setToolTip(`Session: ${formatSessionTime(sessionElapsedMs)}`)
+    tray.setToolTip(`Remaining: ${formatSessionTime(sessionElapsedMs)}`)
   } else {
     tray.setToolTip('Restore')
   }
@@ -55,6 +55,13 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
+  })
+
+  win.on('close', (event) => {
+    if (tray && !(app as any).isQuitting) {
+      event.preventDefault()
+      win?.hide()
+    }
   })
 
   win.on('closed', () => {
@@ -123,24 +130,24 @@ function updateTrayContextMenu() {
   ]
   if (focusSessionActive) {
     menuItems.push({
-      label: `Session time: ${formatSessionTime(sessionElapsedMs)}`,
+      label: `Time left: ${formatSessionTime(sessionElapsedMs)}`,
       enabled: false,
     })
-  }
-  menuItems.push({
-    label: "I'm overwhelmed",
-    click: () => {
-      showOrCreateWindow()
-      if (win && !win.isDestroyed()) {
-        const sendImOverwhelmed = () => win!.webContents.send('tray-im-overwhelmed')
-        if (win.webContents.isLoading()) {
-          win.webContents.once('did-finish-load', sendImOverwhelmed)
-        } else {
-          sendImOverwhelmed()
+    menuItems.push({
+      label: "I'm overwhelmed",
+      click: () => {
+        showOrCreateWindow()
+        if (win && !win.isDestroyed()) {
+          const sendImOverwhelmed = () => win!.webContents.send('tray-im-overwhelmed')
+          if (win.webContents.isLoading()) {
+            win.webContents.once('did-finish-load', sendImOverwhelmed)
+          } else {
+            sendImOverwhelmed()
+          }
         }
-      }
-    },
-  })
+      },
+    })
+  }
   menuItems.push(
     { type: 'separator' },
     {
@@ -166,6 +173,10 @@ function createTrayIcon() {
   // Consume click so icon never opens the window (same on macOS and Windows)
   tray.on('click', () => { })
 }
+
+app.on('before-quit', () => {
+  (app as any).isQuitting = true
+})
 
 // Keep app running when window closes if tray exists; otherwise quit on Windows/Linux.
 app.on('window-all-closed', () => {

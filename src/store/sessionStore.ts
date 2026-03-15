@@ -18,6 +18,8 @@ interface SessionData {
   tabSwitchesPerMinute?: number;
 }
 
+const WORK_MS = 25 * 60 * 1000;
+
 interface SessionStore {
   sessionState: SessionState;
   currentSession: SessionData | null;
@@ -25,6 +27,7 @@ interface SessionStore {
   isPaused: boolean;
   pomodoroPhase: PomodoroPhase;
   pomodoroRound: number;
+  remainingMs: number;
 
   startSession: () => void;
   endSession: (data?: Partial<SessionData>) => void;
@@ -35,6 +38,7 @@ interface SessionStore {
   resumeSession: () => void;
   setPomodoroPhase: (phase: PomodoroPhase) => void;
   incrementPomodoroRound: () => void;
+  setRemainingMs: (ms: number) => void;
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -44,6 +48,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   isPaused: false,
   pomodoroPhase: 'work',
   pomodoroRound: 1,
+  remainingMs: WORK_MS,
 
   startSession: () => {
     const sessionId = `flow-session-${Date.now()}`;
@@ -60,6 +65,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       },
       pomodoroPhase: 'work',
       pomodoroRound: 1,
+      remainingMs: WORK_MS,
     });
   },
 
@@ -107,6 +113,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   incrementPomodoroRound: () => {
     set((state) => ({ pomodoroRound: state.pomodoroRound + 1 }));
+  },
+
+  setRemainingMs: (ms: number) => {
+    set({ remainingMs: ms });
   },
 
   saveToJournal: (reflectionText?: string) => {

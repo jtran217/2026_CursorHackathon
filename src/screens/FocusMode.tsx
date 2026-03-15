@@ -33,6 +33,7 @@ export function FocusMode() {
     pomodoroRound,
     setPomodoroPhase,
     incrementPomodoroRound,
+    setRemainingMs,
   } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, isExtendedIdle, startTracking, distinctDomains, tabSwitchesPerMinute } =
     useActivityStore();
@@ -74,12 +75,14 @@ export function FocusMode() {
 
   // Reset phase timer whenever pomodoroPhase changes
   useEffect(() => {
+    const initial = pomodoroPhase === 'work' ? WORK_MS : BREAK_MS;
     phaseStartTimeRef.current = Date.now();
     pauseOffsetRef.current = 0;
     pausedAtRef.current = null;
     setPhaseEnded(false);
-    setRemaining(pomodoroPhase === 'work' ? WORK_MS : BREAK_MS);
-  }, [pomodoroPhase]);
+    setRemaining(initial);
+    setRemainingMs(initial);
+  }, [pomodoroPhase, setRemainingMs]);
 
   // Countdown timer — pauses and resumes based on isPaused
   useEffect(() => {
@@ -96,6 +99,7 @@ export function FocusMode() {
     const interval = setInterval(() => {
       const r = Math.max(0, duration - (Date.now() - phaseStartTimeRef.current - pauseOffsetRef.current));
       setRemaining(r);
+      setRemainingMs(r);
       if (r === 0) {
         setPhaseEnded(true);
         clearInterval(interval);
