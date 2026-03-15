@@ -43,6 +43,7 @@ __pycache__/
 
 # Backend / Flask
 backend/.venv/
+backend/.active-session
 backend/app.db
 *.db
 

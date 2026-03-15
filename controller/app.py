@@ -1,10 +1,12 @@
 """
 Heart Rate Controller — Python GUI.
 Sends simulated heart rate data to the Flask backend.
+Reads active session from backend/.active-session (written by backend on focus start).
 """
 from typing import Optional
 
 import json
+import os
 import random
 import time
 import tkinter as tk
@@ -13,25 +15,24 @@ from urllib.error import URLError, HTTPError
 
 API_BASE = "http://127.0.0.1:39762"
 API_URL = f"{API_BASE}/api/heart-rate"
-ACTIVE_SESSION_URL = f"{API_BASE}/api/active-session"
 BPM_MIN = 40
 BPM_MAX = 180
 
+# Path to backend/.active-session (backend writes this when app starts focus)
+def _active_session_file():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend", ".active-session")
 
-def fetch_active_session() -> Optional[str]:
-    for _ in range(4):
-        try:
-            req = Request(ACTIVE_SESSION_URL, method="GET")
-            with urlopen(req, timeout=3) as res:
-                if res.getcode() == 200:
-                    data = json.loads(res.read().decode())
-                    sid = data.get("session_id")
-                    if sid:
-                        return sid
-        except Exception:
-            pass
-        if _ < 3:
-            time.sleep(2)
+
+def read_active_session() -> Optional[str]:
+    try:
+        p = _active_session_file()
+        if os.path.exists(p):
+            with open(p) as f:
+                sid = f.read().strip()
+                if sid:
+                    return sid
+    except OSError:
+        pass
     return None
 
 
@@ -42,7 +43,7 @@ def main():
 
     # State
     after_id = None
-    current_session_id = None
+    fallback_session_id: Optional[str] = None
     base_bpm = 72
     trend = 0.0
     stress_spike = 0.0
@@ -110,9 +111,9 @@ def main():
 
         return round(max(BPM_MIN, min(BPM_MAX, bpm)))
 
-    def send_heart_rate(bpm: int) -> bool:
+    def send_heart_rate(bpm: int, session_id: str) -> bool:
         try:
-            data = json.dumps({"session_id": current_session_id, "bpm": bpm}).encode()
+            data = json.dumps({"session_id": session_id, "bpm": bpm}).encode()
             req = Request(
                 API_URL,
                 data=data,
@@ -142,19 +143,21 @@ def main():
             return False
 
     def tick() -> None:
-        nonlocal after_id
+        nonlocal after_id, fallback_session_id
+        session_id = read_active_session()
+        if not session_id:
+            if fallback_session_id is None:
+                fallback_session_id = f"test-session-{int(time.time() * 1000)}"
+            session_id = fallback_session_id
         bpm = compute_bpm()
         bpm_var.set(str(bpm))
-        send_heart_rate(bpm)
+        send_heart_rate(bpm, session_id)
         after_id = root.after(1000, tick)
 
     def start() -> None:
-        nonlocal after_id, current_session_id
+        nonlocal after_id
         if after_id is not None:
             return
-        current_session_id = fetch_active_session()
-        if not current_session_id:
-            current_session_id = f"test-session-{int(time.time() * 1000)}"
         btn_start.config(text="Stop", bg="#D85A30")
         btn_minus.config(state="normal")
         btn_plus.config(state="normal")
@@ -164,12 +167,12 @@ def main():
         tick()
 
     def stop() -> None:
-        nonlocal after_id, current_session_id
+        nonlocal after_id, fallback_session_id
         if after_id is None:
             return
         root.after_cancel(after_id)
         after_id = None
-        current_session_id = None
+        fallback_session_id = None
         bpm_var.set("0")
         btn_start.config(text="Start", bg="#BA7517")
         btn_minus.config(state="disabled")

@@ -131,14 +131,29 @@ export const useHeartRateStore = create<HeartRateStore>((set, get) => ({
       let data = await getHeartRateActive();
       if (!data && !onlyActiveSession) data = await getHeartRateLive();
       if (!data) {
-        get().updateHR(0);
+        if (onlyActiveSession) {
+          get().updateHR(0);
+        } else {
+          // Home: no active session, no live data — use mock so the number still changes
+          const mockBpm = Math.round(
+            65 + Math.sin(Date.now() / 4000) * 8 + (Math.random() - 0.5) * 4
+          );
+          get().updateHR(Math.max(50, Math.min(95, mockBpm)));
+        }
         set({ lastBackendUpdate: Date.now() });
         return;
       }
       const ts = parseTimestamp(data.timestamp);
       const isStale = isNaN(ts) || Date.now() - ts > STALE_MS;
       if (isStale) {
-        get().updateHR(0);
+        if (onlyActiveSession) {
+          get().updateHR(0);
+        } else {
+          const mockBpm = Math.round(
+            65 + Math.sin(Date.now() / 4000) * 8 + (Math.random() - 0.5) * 4
+          );
+          get().updateHR(Math.max(50, Math.min(95, mockBpm)));
+        }
         set({ lastBackendUpdate: Date.now() });
       } else if (data.bpm != null) {
         get().updateHR(data.bpm);

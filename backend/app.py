@@ -20,6 +20,10 @@ JOURNAL_SOURCES = ("overwhelming_trigger", "session_ended")
 # In-memory active session (app registers, controller fetches)
 _active_session_id = None
 
+# File for controller to read (avoids HTTP polling)
+def _active_session_file():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), ".active-session")
+
 
 def create_app():
     app = Flask(__name__)
@@ -162,12 +166,23 @@ def create_app():
         if session_id is None or not isinstance(session_id, str) or session_id.strip() == "":
             return jsonify({"error": "session_id is required and must be a non-empty string"}), 400
         _active_session_id = session_id.strip()
+        try:
+            with open(_active_session_file(), "w") as f:
+                f.write(_active_session_id)
+        except OSError:
+            pass
         return jsonify({"session_id": _active_session_id}), 200
 
     @app.route("/api/active-session", methods=["DELETE"])
     def clear_active_session():
         global _active_session_id
         _active_session_id = None
+        try:
+            p = _active_session_file()
+            if os.path.exists(p):
+                os.remove(p)
+        except OSError:
+            pass
         return jsonify({"status": "cleared"}), 200
 
     # ---- Heart rate ----
