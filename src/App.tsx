@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { Home } from "./screens/Home";
 import { FocusMode } from "./screens/FocusMode";
+import { Intervention } from './screens/Intervention';
 import { SessionSummary } from "./screens/SessionSummary";
 import { Journal } from "./screens/Journal";
 import { useSessionStore } from "./store/sessionStore";
@@ -111,6 +112,7 @@ function App() {
 
         {/* Full-screen screens (no sidebar) */}
         <Route path="/focus" element={<FocusMode />} />
+        <Route path="/intervention" element={<Intervention />} />
         <Route path="/summary" element={<SessionSummary />} />
       </Routes>
     </HashRouter>

@@ -321,16 +321,16 @@ app.whenReady().then(() => {
       updateTrayContextMenu()
       updateTrayTooltip()
     }
+  })
 
-    // Activity Tracking
-    ipcMain.on('activity-start', () => {
-      activityMonitor.start()
-      tabServer.start()
-    })
+  // Activity Tracking
+  ipcMain.on('activity-start', () => {
+    activityMonitor.start()
+    tabServer.start()
+  })
 
-    ipcMain.on('activity-stop', () => {
-      activityMonitor.stop()
-      tabServer.stop()
-    })
+  ipcMain.on('activity-stop', () => {
+    activityMonitor.stop()
+    tabServer.stop()
   })
 })

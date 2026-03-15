@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSessionStore } from '../store/sessionStore';
 
 type Phase = 'acknowledge' | 'decompress' | 'refocus';
@@ -25,21 +26,46 @@ function StepperDots({ current }: { current: number }) {
 }
 
 export function Intervention() {
-  const { resumeFocus } = useSessionStore();
+  const navigate = useNavigate();
+  const { resumeFocus, currentSession } = useSessionStore();
   const [phase, setPhase] = useState<Phase>('acknowledge');
   const [userTask, setUserTask] = useState('');
+
+  // Guard: if there's no active session, send back to home
+  useEffect(() => {
+    if (!currentSession) {
+      navigate('/');
+    }
+  }, [currentSession, navigate]);
 
   const phaseIndex = PHASES.indexOf(phase);
 
   const advance = () => {
-    if (phase === 'acknowledge') setPhase('decompress');
-    else if (phase === 'decompress') setPhase('refocus');
-    else resumeFocus();
+    if (phase === 'acknowledge') {
+      setPhase('decompress');
+    } else if (phase === 'decompress') {
+      setPhase('refocus');
+    } else {
+      resumeFocus();
+      navigate('/focus');
+    }
   };
 
   return (
-    <div className="intervention-backdrop">
-      <div className="intervention-panel modal-shadow">
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{
+        backgroundColor: 'var(--color-focus-surface)',
+        animation: 'panel-slide-in 600ms var(--ease-emerge) both',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 560,
+          padding: 'var(--space-2xl)',
+        }}
+      >
         <StepperDots current={phaseIndex} />
 
         {phase === 'acknowledge' && (
