@@ -57,6 +57,13 @@ function createWindow() {
     },
   })
 
+  win.on('close', (event) => {
+    if (tray && !(app as any).isQuitting) {
+      event.preventDefault()
+      win?.hide()
+    }
+  })
+
   win.on('closed', () => {
     win = null
   })
@@ -166,6 +173,10 @@ function createTrayIcon() {
   // Consume click so icon never opens the window (same on macOS and Windows)
   tray.on('click', () => { })
 }
+
+app.on('before-quit', () => {
+  (app as any).isQuitting = true
+})
 
 // Keep app running when window closes if tray exists; otherwise quit on Windows/Linux.
 app.on('window-all-closed', () => {

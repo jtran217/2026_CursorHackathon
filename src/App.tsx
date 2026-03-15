@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { HashRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { Home } from "./screens/Home";
@@ -74,7 +74,16 @@ function TrayEndFocusHandler() {
 
 function TrayFocusSessionSync() {
   const currentSession = useSessionStore((s) => s.currentSession);
+  const isPaused = useSessionStore((s) => s.isPaused);
   const active = currentSession != null;
+  const totalPauseMsRef = useRef(0);
+  const pausedAtRef = useRef<number | null>(null);
+
+  // Reset pause tracking whenever a new session starts
+  useEffect(() => {
+    totalPauseMsRef.current = 0;
+    pausedAtRef.current = null;
+  }, [currentSession?.startTime]);
 
   useEffect(() => {
     window.ipcRenderer?.send("tray-set-focus-session-active", active);
@@ -82,16 +91,27 @@ function TrayFocusSessionSync() {
 
   useEffect(() => {
     if (!active || !currentSession) return;
+
+    if (isPaused) {
+      pausedAtRef.current = Date.now();
+      return;
+    }
+
+    if (pausedAtRef.current !== null) {
+      totalPauseMsRef.current += Date.now() - pausedAtRef.current;
+      pausedAtRef.current = null;
+    }
+
     const sendElapsed = () => {
       window.ipcRenderer?.send(
         "tray-set-session-elapsed-ms",
-        Date.now() - currentSession.startTime
+        Date.now() - currentSession.startTime - totalPauseMsRef.current
       );
     };
     sendElapsed();
     const interval = setInterval(sendElapsed, 1000);
     return () => clearInterval(interval);
-  }, [active, currentSession]);
+  }, [active, currentSession, isPaused]);
 
   return null;
 }
