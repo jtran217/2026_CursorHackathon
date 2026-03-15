@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "start:backend": "node scripts/start-backend.mjs",
-    "start:controller": "cd controller && python app.py",
+    "start:controller": "node scripts/start-controller.mjs",
     "start:all": "concurrently -n frontend,backend,controller -c blue,green,magenta \"npm run dev\" \"npm run start:backend\" \"npm run start:controller\"",
     "build:backend": "bash scripts/build-backend.sh",
     "build": "npm run build:backend && tsc && vite build && electron-builder",

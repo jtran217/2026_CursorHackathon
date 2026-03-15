@@ -1,7 +1,8 @@
 import { app, BrowserWindow, Tray, nativeImage, Menu, ipcMain, powerMonitor, Notification } from 'electron'
-import { execSync, spawn, ChildProcess } from 'node:child_process'
+import { execFileSync, execSync, spawn, ChildProcess } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs'
 import http from 'node:http'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -30,14 +31,36 @@ let focusSessionActive = false
 let sessionElapsedMs = 0
 let backendProcess: ChildProcess | null = null
 
+function resolveDevPython(appRoot: string): string {
+  const isWin = process.platform === 'win32'
+  const binDir = isWin ? 'Scripts' : 'bin'
+  const pyExe = isWin ? 'python.exe' : 'python'
+  const candidates = [
+    path.join(appRoot, '.venv', binDir, pyExe),
+    path.join(appRoot, 'backend', '.venv', binDir, pyExe),
+  ]
+  const venvPython = candidates.find((p) => fs.existsSync(p))
+  if (venvPython) return venvPython
+  for (const cmd of ['python3', 'python']) {
+    try {
+      execFileSync(cmd, ['--version'], { stdio: 'ignore' })
+      return cmd
+    } catch {
+      // not found
+    }
+  }
+  return 'python3'
+}
+
 function startBackend() {
   const dbPath = path.join(app.getPath('userData'), 'app.db')
   const env = { ...process.env, DATABASE_URL: `sqlite:///${dbPath}`, BACKEND_PORT: '5001' }
 
   if (VITE_DEV_SERVER_URL) {
     // In dev mode, spawn Flask directly using the local Python interpreter
-    backendProcess = spawn('python', ['app.py'], {
-      cwd: path.join(process.env.APP_ROOT, 'backend'),
+    const python = resolveDevPython(process.env.APP_ROOT as string)
+    backendProcess = spawn(python, ['app.py'], {
+      cwd: path.join(process.env.APP_ROOT as string, 'backend'),
       env,
     })
   } else {
