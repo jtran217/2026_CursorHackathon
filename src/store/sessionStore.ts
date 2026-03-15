@@ -1,8 +1,10 @@
 import { create } from 'zustand';
+import { postJournal, postSessionSummary, postActiveSession, clearActiveSession } from '../lib/api';
 
 export type SessionState = 'idle' | 'focus' | 'intervention' | 'summary';
 
 interface SessionData {
+  sessionId?: string;
   startTime: number;
   endTime?: number;
   interventionCount: number;
@@ -25,7 +27,7 @@ interface SessionStore {
   endSession: (data?: Partial<SessionData>) => void;
   triggerIntervention: () => void;
   resumeFocus: () => void;
-  saveToJournal: () => void;
+  saveToJournal: (reflectionText?: string) => void;
   pauseSession: () => void;
   resumeSession: () => void;
 }
@@ -37,9 +39,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   isPaused: false,
 
   startSession: () => {
+    const sessionId = `flow-session-${Date.now()}`;
+    postActiveSession(sessionId);
     set({
       sessionState: 'focus',
       currentSession: {
+        sessionId,
         startTime: Date.now(),
         interventionCount: 0,
         avgHR: 0,
@@ -87,9 +92,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ isPaused: false });
   },
 
-  saveToJournal: () => {
+  saveToJournal: (reflectionText?: string) => {
     const current = get().currentSession;
     if (!current) return;
+    const text = reflectionText?.trim() || 'Session ended.';
+    if (current.sessionId) {
+      postJournal(current.sessionId, 'session_ended', text);
+      postSessionSummary(current.sessionId);
+      clearActiveSession();
+    }
     const sessions = [...get().pastSessions, current];
     localStorage.setItem('flow-sessions', JSON.stringify(sessions));
     set({

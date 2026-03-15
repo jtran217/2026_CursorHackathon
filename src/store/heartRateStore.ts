@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getHeartRateActive, getHeartRateLive } from '../lib/api';
 
 export type CognitiveState = 'calm' | 'normal' | 'elevated' | 'overload';
 
@@ -6,6 +7,8 @@ interface HRDataPoint {
   value: number;
   timestamp: number;
 }
+
+const BACKEND_FRESH_MS = 2500;
 
 interface HeartRateStore {
   currentHR: number;
@@ -15,9 +18,12 @@ interface HeartRateStore {
   /** Backwards-compatible alias — returns the blended focusStrain */
   strainScore: number;
   isConnected: boolean;
+  lastBackendUpdate: number;
 
   updateHR: (value: number) => void;
-  startMockHR: () => () => void;
+  startMockHR: (onHRUpdate?: (bpm: number) => void) => () => void;
+  startBackendPoll: (sessionId: string) => () => void;
+  startLivePoll: () => () => void;
 }
 
 function computeCognitiveState(hr: number): CognitiveState {
@@ -43,6 +49,7 @@ export const useHeartRateStore = create<HeartRateStore>((set, get) => ({
   hrStrain: 0,
   strainScore: 0,
   isConnected: false,
+  lastBackendUpdate: 0,
 
   updateHR: (value: number) => {
     const point: HRDataPoint = { value, timestamp: Date.now() };
@@ -57,26 +64,59 @@ export const useHeartRateStore = create<HeartRateStore>((set, get) => ({
     });
   },
 
-  startMockHR: () => {
+  startMockHR: (onHRUpdate?: (bpm: number) => void) => {
     let baseHR = 68;
     let trend = 0;
 
     set({ isConnected: true });
 
     const interval = setInterval(() => {
+      const now = Date.now();
+      const backendFresh = now - get().lastBackendUpdate < BACKEND_FRESH_MS;
+      if (backendFresh) return;
+
       trend += (Math.random() - 0.5) * 2;
       trend = Math.max(-5, Math.min(5, trend));
       const noise = (Math.random() - 0.5) * 4;
       baseHR += trend * 0.3 + noise * 0.2;
       baseHR = Math.max(55, Math.min(115, baseHR));
 
-      get().updateHR(Math.round(baseHR));
+      const bpm = Math.round(baseHR);
+      get().updateHR(bpm);
+      onHRUpdate?.(bpm);
     }, 2000);
 
     return () => {
       clearInterval(interval);
       set({ isConnected: false });
     };
+  },
+
+  startBackendPoll: (_sessionId: string) => {
+    const poll = async () => {
+      const data = await getHeartRateActive();
+      if (data?.bpm != null) {
+        get().updateHR(data.bpm);
+        set({ lastBackendUpdate: Date.now() });
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 1000);
+    return () => clearInterval(interval);
+  },
+
+  startLivePoll: () => {
+    const poll = async () => {
+      let data = await getHeartRateActive();
+      if (!data) data = await getHeartRateLive();
+      if (data?.bpm != null) {
+        get().updateHR(data.bpm);
+        set({ lastBackendUpdate: Date.now() });
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 1000);
+    return () => clearInterval(interval);
   },
 }));
 

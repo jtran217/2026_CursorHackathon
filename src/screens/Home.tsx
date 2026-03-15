@@ -9,16 +9,21 @@ import { Sparkline } from '../components/Sparkline';
 import { StateBadge } from '../components/StateBadge';
 
 export function Home() {
-  const { currentHR, hrHistory, cognitiveState, hrStrain, startMockHR } =
+  const { currentHR, hrHistory, cognitiveState, hrStrain, startMockHR, startLivePoll } =
     useHeartRateStore();
   const { startSession, triggerIntervention } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, distinctDomains, tabSwitchesPerMinute } = useActivityStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const cleanup = startMockHR();
-    return cleanup;
+    const cleanupMock = startMockHR();
+    return cleanupMock;
   }, [startMockHR]);
+
+  useEffect(() => {
+    const cleanupPoll = startLivePoll();
+    return cleanupPoll;
+  }, [startLivePoll]);
 
   const focusStrain = computeFocusStrain(hrStrain, contextSwitchScore, undefined, sedentaryStrain);
 
