@@ -43,7 +43,7 @@ Built with Electron + React + Vite (frontend) and Flask + SQLite (backend), bund
 
 ## Development
 
-Start the Vite dev server and Electron together. The backend (Flask) is spawned automatically by Electron on port 5001.
+Start the Vite dev server and Electron together. The backend (Flask) is spawned automatically by Electron on port 39762.
 
 ```bash
 npm install
@@ -89,7 +89,7 @@ open release/mac-arm64/Restore.app
 To verify the backend started successfully:
 
 ```bash
-curl http://localhost:5001/api/health
+curl http://localhost:39762/api/health
 # Expected: {"status": "ok"}
 ```
 
@@ -99,12 +99,12 @@ curl http://localhost:5001/api/health
 
 Always quit via the **tray icon** (menu bar) → **Quit**. This triggers the `before-quit` handler which cleanly stops the embedded Flask backend before Electron exits.
 
-Avoid force-quitting (Cmd+Q on the window, or Activity Monitor force kill), as this can leave the backend process running and holding port 5001.
+Avoid force-quitting (Cmd+Q on the window, or Activity Monitor force kill), as this can leave the backend process running and holding port 39762.
 
-If port 5001 is stuck after an unclean exit:
+If port 39762 is stuck after an unclean exit:
 
 ```bash
-lsof -ti :5001 | xargs kill -9
+lsof -ti :39762 | xargs kill -9
 ```
 
 ---
@@ -135,7 +135,7 @@ Removes `dist/`, `release/`, `backend-dist/`, and `build/` (PyInstaller work dir
 
 ## Backend API
 
-The Flask backend runs on `http://localhost:5001` and exposes:
+The Flask backend runs on `http://localhost:39762` and exposes:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
