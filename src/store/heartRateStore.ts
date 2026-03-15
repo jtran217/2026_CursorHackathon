@@ -33,7 +33,8 @@ interface HeartRateStore {
   updateHR: (value: number) => void;
   startMockHR: (onHRUpdate?: (bpm: number) => void) => () => void;
   startBackendPoll: (sessionId: string) => () => void;
-  startLivePoll: () => () => void;
+  /** When onlyActiveSession is true, skip getHeartRateLive fallback — use only active-session API (404 when no session → show 0). */
+  startLivePoll: (onlyActiveSession?: boolean) => () => void;
 }
 
 function computeCognitiveState(hr: number): CognitiveState {
@@ -125,10 +126,10 @@ export const useHeartRateStore = create<HeartRateStore>((set, get) => ({
     return () => clearInterval(interval);
   },
 
-  startLivePoll: () => {
+  startLivePoll: (onlyActiveSession = false) => {
     const poll = async () => {
       let data = await getHeartRateActive();
-      if (!data) data = await getHeartRateLive();
+      if (!data && !onlyActiveSession) data = await getHeartRateLive();
       if (!data) {
         get().updateHR(0);
         set({ lastBackendUpdate: Date.now() });
