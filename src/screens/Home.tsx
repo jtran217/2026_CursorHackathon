@@ -7,11 +7,12 @@ import { HRDisplay } from '../components/HRDisplay';
 import { PulseDot } from '../components/PulseDot';
 import { Sparkline } from '../components/Sparkline';
 import { StateBadge } from '../components/StateBadge';
+import { PomodoroOverride } from '../components/PomodoroOverride';
 
 export function Home() {
   const { currentHR, hrHistory, cognitiveState, hrStrain, startLivePoll } =
     useHeartRateStore();
-  const { startSession, triggerIntervention } = useSessionStore();
+  const { startSession, triggerIntervention, setCustomDurations } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, distinctDomains, tabSwitchesPerMinute } = useActivityStore();
   const navigate = useNavigate();
 
@@ -31,6 +32,10 @@ export function Home() {
         : focusStrain < 75
           ? 'high'
           : 'critical';
+
+  const handleApplyOverride = (focusMinutes: number, breakMinutes: number) => {
+    setCustomDurations(focusMinutes, breakMinutes);
+  };
 
   const handleStartSession = () => {
     startSession();
@@ -136,6 +141,8 @@ export function Home() {
           >
             Session
           </p>
+
+          <PomodoroOverride onApply={handleApplyOverride} />
           <button
             type="button"
             className="btn-primary w-full"

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { postJournal, postSessionSummary, postActiveSession, clearActiveSession } from '../lib/api';
+import { FOCUS_DURATION_MS } from '../config/timerConfig';
 
 export type SessionState = 'idle' | 'focus' | 'intervention' | 'summary';
 export type PomodoroPhase = 'work' | 'break';
@@ -18,8 +19,6 @@ interface SessionData {
   tabSwitchesPerMinute?: number;
 }
 
-const WORK_MS = 25 * 60 * 1000;
-
 interface SessionStore {
   sessionState: SessionState;
   currentSession: SessionData | null;
@@ -28,6 +27,8 @@ interface SessionStore {
   pomodoroPhase: PomodoroPhase;
   pomodoroRound: number;
   remainingMs: number;
+  focusDurationMs: number;
+  breakDurationMs: number;
 
   startSession: () => void;
   endSession: (data?: Partial<SessionData>) => void;
@@ -39,6 +40,7 @@ interface SessionStore {
   setPomodoroPhase: (phase: PomodoroPhase) => void;
   incrementPomodoroRound: () => void;
   setRemainingMs: (ms: number) => void;
+  setCustomDurations: (focusMinutes: number, breakMinutes: number) => void;
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -48,9 +50,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   isPaused: false,
   pomodoroPhase: 'work',
   pomodoroRound: 1,
-  remainingMs: WORK_MS,
+  focusDurationMs: FOCUS_DURATION_MS,
+  breakDurationMs: 5 * 60 * 1000,
+  remainingMs: FOCUS_DURATION_MS,
 
   startSession: () => {
+    const { focusDurationMs } = get();
     const sessionId = `flow-session-${Date.now()}`;
     postActiveSession(sessionId);
     set({
@@ -65,7 +70,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       },
       pomodoroPhase: 'work',
       pomodoroRound: 1,
-      remainingMs: WORK_MS,
+      remainingMs: focusDurationMs,
     });
   },
 
@@ -117,6 +122,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   setRemainingMs: (ms: number) => {
     set({ remainingMs: ms });
+  },
+
+  setCustomDurations: (focusMinutes: number, breakMinutes: number) => {
+    const focusDurationMs = focusMinutes * 60 * 1000;
+    const breakDurationMs = breakMinutes * 60 * 1000;
+    set({
+      focusDurationMs,
+      breakDurationMs,
+    });
   },
 
   saveToJournal: async (reflectionText?: string) => {
