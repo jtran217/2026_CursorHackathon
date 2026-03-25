@@ -23,7 +23,7 @@ export function Sidebar() {
             fontSize: 'var(--text-lg)',
           }}
         >
-          Flow
+          Restore
         </span>
       </div>
 
