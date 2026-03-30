@@ -11,7 +11,7 @@ import { StateBadge } from '../components/StateBadge';
 export function Home() {
   const { currentHR, hrHistory, cognitiveState, hrStrain, startLivePoll } =
     useHeartRateStore();
-  const { startSession, triggerIntervention } = useSessionStore();
+  const { startSession } = useSessionStore();
   const { contextSwitchScore, distinctApps, avgDwellTime, sedentaryStrain, distinctDomains, tabSwitchesPerMinute } = useActivityStore();
   const navigate = useNavigate();
 
@@ -142,17 +142,6 @@ export function Home() {
             onClick={handleStartSession}
           >
             Start session
-          </button>
-          <button
-            type="button"
-            className="btn-signal w-full"
-            onClick={() => {
-              startSession();
-              triggerIntervention();
-              navigate('/focus');
-            }}
-          >
-            I'm overwhelmed
           </button>
         </div>
       </div>
